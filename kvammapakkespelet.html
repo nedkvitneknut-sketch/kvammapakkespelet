@@ -16,11 +16,6 @@
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<!-- Open Graph / social preview -->
-<meta property="og:title" content="Kvammapakkespelet">
-<meta property="og:description" content="Rock Me Dry! – eit pikselspel frå Kvam">
-<meta property="og:image" content="icon-512.png">
-<meta property="og:type" content="website">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -49,12 +44,9 @@ canvas{display:block;border:2px solid #44aa44;image-rendering:auto;}
 #mb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   background:#0a200aee;border:3px solid #44aa44;padding:14px 18px;
   text-align:center;font-size:7px;color:#fff;line-height:2.2;z-index:10;
-  display:none;min-width:280px;border-radius:4px;max-height:380px;overflow-y:auto;
-  touch-action:auto;}
-#mb input{touch-action:auto;pointer-events:all;user-select:text;-webkit-user-select:text;}
+  display:none;min-width:280px;border-radius:4px;max-height:380px;overflow-y:auto;}
 #mb h2{color:#ffec00;font-size:11px;margin-bottom:6px;}
 #mb .sub{color:#aaffaa;font-size:6px;margin-bottom:8px;}
-#mb input{display:block;margin:6px auto;}
 #mb button{margin:6px 4px 0;background:#44aa44;border:none;color:#fff;
   font-family:'Press Start 2P',monospace;font-size:6px;
   padding:8px 14px;cursor:pointer;border-radius:4px;display:inline-block;}
@@ -69,6 +61,8 @@ canvas{display:block;border:2px solid #44aa44;image-rendering:auto;}
 #mb td{padding:3px 6px;border-bottom:1px solid #226622;}
 
 #splash{position:absolute;top:0;left:0;width:100%;height:400px;background:#0a1a0a;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#mb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0a200aee;border:3px solid #44aa44;padding:14px 18px;text-align:center;font-size:7px;color:#fff;line-height:2.2;z-index:25;display:none;min-width:280px;border-radius:4px;max-height:380px;overflow-y:auto;touch-action:auto;}
+#mb input{touch-action:auto;pointer-events:all;user-select:text;-webkit-user-select:text;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
 </style>
 </head>
@@ -117,27 +111,54 @@ canvas{display:block;border:2px solid #44aa44;image-rendering:auto;}
   <div id="ft"></div>
   <div id="lt"></div>
 </div>
-<script>var CHARS=[{id:"tore",name:"Tore"},{id:"sindre",name:"Sindre"},{id:"simon",name:"Simon"},{id:"sveinolav",name:"Svein Olav"},{id:"knut",name:"Knut"}];
+<script>
+var CHARS=[{id:"tore",name:"Tore"},{id:"sindre",name:"Sindre"},{id:"simon",name:"Simon"},{id:"sveinolav",name:"Svein Olav"},{id:"knut",name:"Knut"}];
 var selectedChar="tore";
 
 'use strict';
 // ═══════════════════════════════════════════
 // HIGHSCORE
 // ═══════════════════════════════════════════
+// Supabase global highscore
+var SB_URL='https://rbseezpqzjskgputpnsi.supabase.co';
+var SB_KEY='sb_publishable_uNFLV-ToCz73Ae00Qleo9g_HJZrKhGq';
 var HSK='kvamma_bmd_v1';
-function hsLoad(){try{return JSON.parse(localStorage.getItem(HSK))||[];}catch{return[];}}
-function hsSave(l){try{localStorage.setItem(HSK,JSON.stringify(l));}catch{}}
+
+function hsLoad(){try{return JSON.parse(localStorage.getItem(HSK))||[];}catch(e){return[];}}
+function hsSave(l){try{localStorage.setItem(HSK,JSON.stringify(l));}catch(e){}}
+
 function hsAdd(name,sc){
-  const l=hsLoad();
+  var l=hsLoad();
   l.push({name:String(name).slice(0,12)||'ANONYM',score:sc});
-  l.sort((a,b)=>b.score-a.score);
+  l.sort(function(a,b){return b.score-a.score;});
   hsSave(l.slice(0,10));
+  fetch(SB_URL+'/rest/v1/scores',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},
+    body:JSON.stringify({name:String(name).slice(0,12)||'ANONYM',score:sc})
+  }).catch(function(){});
 }
-function hsRender(){
-  const l=hsLoad();
-  if(!l.length)return '<p style="color:#666;font-size:6px">Ingen score enno!</p>';
-  const medals=['🥇','🥈','🥉'];
-  return '<table>'+l.map((e,i)=>`<tr><td>${medals[i]||i+1+'.'}</td><td style="color:#aaffaa">${e.name}</td><td style="color:#fff;text-align:right">${e.score}</td></tr>`).join('')+'</table>';
+
+function hsFetchGlobal(cb){
+  fetch(SB_URL+'/rest/v1/scores?select=name,score&order=score.desc&limit=10',{
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){if(Array.isArray(data)){cb(data);}else{cb(null);}})
+  .catch(function(){cb(null);});
+}
+
+function hsRender(scores){
+  var l=scores||hsLoad();
+  if(!l||!l.length)return '<p style="color:#666;font-size:6px">Ingen score enno!</p>';
+  var med=['🥇','🥈','🥉'];
+  return '<table style="width:100%;border-collapse:collapse">'
+    +l.map(function(e,i){
+      return '<tr>'
+        +'<td style="padding:2px 4px">'+(med[i]||(i+1+'.'))
+        +'</td><td style="color:#aaffaa;padding:2px 4px">'+e.name
+        +'</td><td style="color:#ffec00;text-align:right;padding:2px 4px">'+e.score+'</td></tr>';
+    }).join('')+'</table>';
 }
 
 // ═══════════════════════════════════════════
@@ -1252,24 +1273,44 @@ function showDead(){
   document.getElementById('ms').textContent='Utan '+(_shieldNames[selectedChar]||'skjold')+' = instant death!';
   document.getElementById('mbody').textContent='Score: '+score;
   document.getElementById('mex').innerHTML=
-    '<br><div style="color:#aaffaa;font-size:6px;margin-bottom:4px;">SKRIV NAMNET DITT:</div>'+
+    '<div style="color:#ff8888;font-size:6px;margin:6px 0 4px;">SKRIV INN NAMNET DITT:</div>'+
     '<input id="ni" type="text" maxlength="12" placeholder="DITT NAMN"'+
     ' autocomplete="off" autocorrect="off" autocapitalize="off"'+
     ' style="background:#0a200a;border:2px solid #ff4444;color:#ff8888;'+
     'font-family:Courier New,monospace;font-size:12px;padding:10px;'+
-    'width:190px;margin:4px 0 8px;border-radius:4px;text-align:center;display:block;'+
-    'touch-action:auto;touch-action:auto;-webkit-appearance:none;outline:none;">';
+    'width:190px;margin:0 0 8px;border-radius:4px;text-align:center;display:block;'+
+    'touch-action:auto;-webkit-appearance:none;outline:none;">'+
+    '<button id="mokbrag" style="background:transparent;border:2px solid #44ee44;color:#44ee44;'+
+    'font-family:Courier New,monospace;font-size:7px;padding:7px 12px;cursor:pointer;'+
+    'border-radius:4px;margin-top:2px;display:block;width:190px;-webkit-tap-highlight-color:transparent;">'+
+    '🏆 LAGRE OG BRAG ME DRY</button>';
   document.getElementById('mok').textContent='LAGRE OG PRØV IGJEN';
-  document.getElementById('mhs').style.display='inline-block';
+  document.getElementById('mhs').style.display='none';
   document.getElementById('mb').style.display='block';
   setTimeout(function(){
     var ni=document.getElementById('ni');
     if(ni){
       ni.focus();
-      // Stop touch/click events from propagating to game buttons
       ni.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
       ni.addEventListener('touchend',function(e){e.stopPropagation();},{passive:true});
       ni.addEventListener('click',function(e){e.stopPropagation();});
+    }
+    var mb2=document.getElementById('mokbrag');
+    if(mb2){
+      mb2.addEventListener('click',function(){
+        var _ni=document.getElementById('ni');
+        hsAdd(_ni&&_ni.value.trim()||'ANONYM',score);
+        document.getElementById('mb').style.display='none';
+        score=0;currentLevel=1;upd();
+        showHSPage();
+      });
+      mb2.addEventListener('touchstart',function(e){e.preventDefault();
+        var _ni=document.getElementById('ni');
+        hsAdd(_ni&&_ni.value.trim()||'ANONYM',score);
+        document.getElementById('mb').style.display='none';
+        score=0;currentLevel=1;upd();
+        showHSPage();
+      },{passive:false});
     }
   },350);
 }
@@ -1279,34 +1320,59 @@ function showWin(){
   document.getElementById('ms').textContent='Rock Me Dry! Score: '+score;
   document.getElementById('mbody').textContent=lvlMsg[currentLevel]||'';
   document.getElementById('mex').innerHTML=
-    '<br><div style="color:#aaffaa;font-size:6px;margin-bottom:6px;">SKRIV INN NAMNET DITT:</div>'+
+    '<div style="color:#aaffaa;font-size:6px;margin:6px 0 4px;">SKRIV INN NAMNET DITT:</div>'+
     '<input id="ni" type="text" maxlength="12" placeholder="DITT NAMN"'+
     ' autocomplete="off" autocorrect="off" autocapitalize="off"'+
     ' style="background:#0a200a;border:2px solid #ffec00;color:#ffec00;'+
     'font-family:Courier New,monospace;font-size:12px;padding:10px;'+
-    'width:190px;margin:4px 0 8px;border-radius:4px;text-align:center;display:block;'+
-    '-webkit-appearance:none;outline:none;">';
+    'width:190px;margin:0 0 8px;border-radius:4px;text-align:center;display:block;'+
+    'touch-action:auto;-webkit-appearance:none;outline:none;">'+
+    '<button id="mokbrag" style="background:transparent;border:2px solid #44ee44;color:#44ee44;'+
+    'font-family:Courier New,monospace;font-size:7px;padding:7px 12px;cursor:pointer;'+
+    'border-radius:4px;margin-top:2px;display:block;width:190px;-webkit-tap-highlight-color:transparent;">'+
+    '🏆 LAGRE OG BRAG ME DRY</button>';
   document.getElementById('mok').textContent='LAGRE OG SPEL IGJEN';
-  document.getElementById('mhs').style.display='inline-block';
+  document.getElementById('mhs').style.display='none';
   document.getElementById('mb').style.display='block';
   setTimeout(function(){
     var ni=document.getElementById('ni');
     if(ni){
       ni.focus();
-      // Stop touch/click events from propagating to game buttons
       ni.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
       ni.addEventListener('touchend',function(e){e.stopPropagation();},{passive:true});
       ni.addEventListener('click',function(e){e.stopPropagation();});
     }
+    var mb2=document.getElementById('mokbrag');
+    if(mb2){
+      mb2.addEventListener('click',function(){
+        var _ni=document.getElementById('ni');
+        hsAdd(_ni&&_ni.value.trim()||'ANONYM',score);
+        document.getElementById('mb').style.display='none';
+        score=0;currentLevel=1;upd();
+        showHSPage();
+      });
+      mb2.addEventListener('touchstart',function(e){e.preventDefault();
+        var _ni=document.getElementById('ni');
+        hsAdd(_ni&&_ni.value.trim()||'ANONYM',score);
+        document.getElementById('mb').style.display='none';
+        score=0;currentLevel=1;upd();
+        showHSPage();
+      },{passive:false});
+    }
   },350);
 }function showHSPage(){
-  msgShow('🏆 BRAG ME DRY','Toppliste',hsRender(),'TILBAKE',false);
+  inHS=true;
+  msgShow('🏆 BRAG ME DRY','Global toppliste','<p style="color:#aaffaa;font-size:7px">Hentar scores...</p>','TILBAKE',false);
+  hsFetchGlobal(function(data){
+    var el=document.getElementById('mbody');
+    if(el)el.innerHTML=hsRender(data||null);
+  });
 }
 
 document.getElementById('mok').addEventListener('click',()=>{
   initAC();
   if(AC&&AC.state==='suspended')AC.resume();
-  if(inHS){inHS=false;if(state==='win')showWin();else if(state==='dead')showDead();else showTitle();return;}
+  if(inHS){inHS=false; document.getElementById('mb').style.display='none'; showCharSelect(); return;}
   if(state==='levelup'){
     document.getElementById('mb').style.display='none';
     initLevel(); state='playing';
@@ -1481,6 +1547,17 @@ function showCharSelect(){
     list.appendChild(btn);
   });
   document.getElementById('csbtn').style.display='inline-block';
+  // Add Brag Me Dry button if not already there
+  var bragBtn = document.getElementById('bragbtn');
+  if(!bragBtn){
+    bragBtn = document.createElement('button');
+    bragBtn.id = 'bragbtn';
+    bragBtn.textContent = '🏆 BRAG ME DRY';
+    bragBtn.style.cssText='background:transparent;border:2px solid #ffec00;color:#ffec00;font-family:Courier New,monospace;font-size:7px;padding:8px 16px;cursor:pointer;border-radius:4px;margin-top:6px;-webkit-tap-highlight-color:transparent;';
+    bragBtn.addEventListener('click', function(){document.getElementById('cs').style.display='none';showHSPage();});
+    bragBtn.addEventListener('touchstart', function(e){e.preventDefault();document.getElementById('cs').style.display='none';showHSPage();},{passive:false});
+    document.getElementById('cs').appendChild(bragBtn);
+  }
 }
 
 function startFromCharSelect(){
@@ -2080,6 +2157,7 @@ document.getElementById('mok').addEventListener('click',function(){
   sp.addEventListener('touchstart',function(e){e.preventDefault();hideSplash();},{passive:false});
   document.addEventListener('keydown',function(e){if(sp.style.display!=='none')hideSplash();});
 })();
+
 
 </script>
 </body>
