@@ -2,27 +2,27 @@
   "name": "Kvammapakkespelet",
   "short_name": "Kvamma",
   "description": "Rock Me Dry! – eit pikselspel frå Kvam",
-  "start_url": "/tore-paa-tur/kvammapakkespelet.html",
-  "scope": "/tore-paa-tur/",
+  "start_url": "/kvammapakkespelet/kvammapakkespelet.html",
+  "scope": "/kvammapakkespelet/",
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#0a1a0a",
   "theme_color": "#1a3a1a",
   "icons": [
     {
-      "src": "/tore-paa-tur/icon-192.png",
+      "src": "/kvammapakkespelet/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/tore-paa-tur/icon-512.png",
+      "src": "/kvammapakkespelet/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/tore-paa-tur/apple-touch-icon.png",
+      "src": "/kvammapakkespelet/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
