@@ -700,9 +700,8 @@ function drawPolav(e){
 }
 
 function drawBGBergen(){
-  // Grey rainy Bergen sky
-  ctx.fillStyle='#8899aa'; ctx.fillRect(0,0,W,H*.55);
-  ctx.fillStyle='#667788'; ctx.fillRect(0,0,W,H*.2);
+  // Grå regntung Bergen-himmel (mjuk gradient)
+  skyGrad('l2sky',['#566474','#76869a','#92a4b6'],0,Math.ceil(H*.55));
 
   // Fløyen mountain behind city
   ctx.fillStyle='#3a5a3a';
@@ -783,10 +782,8 @@ function drawBG(){
   if(currentLevel===2){drawBGBergen();return;}
   if(currentLevel===3){drawBGVoss();return;}
 
-  // ── Sky: smooth blue gradient via thin bands ──
-  const skyC=['#2a5a8a','#3068a0','#3a78b4','#4888c8','#5898d4','#6aaade','#7cbce8','#90cef0','#a8dcf6','#bce8fa'];
-  const bh=Math.ceil(H*.54/skyC.length)+1;
-  skyC.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,i*bh,W,bh+1);});
+  // ── Sky: heilt mjuk blå gradient (cacha) ──
+  skyGrad('l1sky',['#2a5a8a','#3a78b4','#5898d4','#7cbce8','#a8dcf6','#bce8fa'],0,Math.ceil(H*.56));
 
   // ── Mountains (triangles - called once per frame, fine on Safari) ──
   ctx.fillStyle='#7788aa';
@@ -812,10 +809,8 @@ function drawBG(){
     ctx.beginPath(); ctx.arc(dx+95,GY+15,110,Math.PI,0); ctx.fill();
   }
 
-  // ── Ground: smooth gradient bands ──
-  const gndC=['#2d7a2d','#267228','#1e6820','#185e18','#125212','#0e460e','#0a3a0a'];
-  const gh=Math.ceil((H-GY)/gndC.length)+1;
-  gndC.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,GY+i*gh,W,gh+1);});
+  // ── Ground: mjuk grøn gradient (cacha) ──
+  skyGrad('l1gnd',['#2d7a2d','#1e6820','#125212','#0a3a0a'],GY,H-GY);
 
   // ── Fjord ──
   const fjY=GY-26;
@@ -1679,10 +1674,8 @@ function drawNatabjoedn(e){
 
 // Voss background
 function drawBGVoss(){
-  // ── Sunset sky: smooth gradient via thin bands ──
-  const vossC=['#18082a','#280e40','#3e1450','#5a1a50','#761e44','#94263a','#ae3430','#c44828','#d46022','#de781a','#e69018','#f0aa20','#f8c030','#fcd444'];
-  const bh=Math.ceil(H*.76/vossC.length)+1;
-  vossC.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,i*bh,W,bh+1);});
+  // ── Solnedgang: heilt mjuk gradient (cacha) ──
+  skyGrad('l3sky',['#18082a','#3e1450','#761e44','#ae3430','#d46022','#f0aa20','#fcd444'],0,Math.ceil(H*.78));
   ctx.fillStyle='#ffeeaa44';ctx.fillRect(0,H*.7,W,H*.08);
 
   // ── Dramatic clouds lit from below ──
@@ -1736,10 +1729,8 @@ function drawBGVoss(){
   ctx.fillStyle='#ffcc6622';for(let r=0;r<10;r++)ctx.fillRect(r*38,lkY+6,22,14);
   ctx.fillStyle='#ffcc7733';for(let w=0;w<7;w++){const lx=((w*86-camX*.18+fc*.35)%(W+50)+W+50)%(W+50)-25;ctx.fillRect(lx,lkY+8,34,3);}
 
-  // ── Ground: smooth gradient bands ──
-  const gndV=['#7a8899','#6e7c8e','#627082','#566476','#4a586a','#3e4c5e'];
-  const gh=Math.ceil((H-GY)/gndV.length)+1;
-  gndV.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,GY+i*gh,W,gh+1);});
+  // ── Ground: mjuk gradient (cacha) ──
+  skyGrad('l3gnd',['#7a8899','#627082','#4a586a','#3e4c5e'],GY,H-GY);
   // Snow surface highlight
   ctx.fillStyle='#e8e0d4';ctx.fillRect(0,GY,W,4);
   ctx.fillStyle='#eef0e8';
@@ -2174,9 +2165,82 @@ const BOSS_T={vk:'VIKØYJENTO',m:'MÅGNI',po:"P'OLAV",of:'ORDFØRAREN',tg:'TRUSE
 const REG_T={t:'KALKUN! +%s 🦃',tj:'TJOMMI! +%s 🐟',nb:'NATABJØDN! +%s 🐿️',lf:'LOFOTTORSK! +%s 🐟'};
 const RAINBOW=['#ff4444','#ffaa00','#ffec00','#44ee44','#44aaff','#cc66ff'];
 
-// Nye system: score-popups, boss-prosjektil, rock-modus, hit-pause
+// Nye system: score-popups, boss-prosjektil, rock-modus, hit-pause, tidsbonus
 // (var-deklarasjonar hoistar; initLevel set verdiane før første draw)
-var popups,projs,rockT,hitPause;
+var popups,projs,rockT,hitPause,timeLeft;
+
+// ── Mjuke gradientar (cacha offscreen) — erstattar fargeband ──
+var _gradCache;
+function skyGrad(key,stops,y,h){
+  if(!_gradCache)_gradCache={};
+  if(!_gradCache[key]){
+    const cnv=document.createElement('canvas');cnv.width=W;cnv.height=h;
+    const g2=cnv.getContext('2d');
+    const gr=g2.createLinearGradient(0,0,0,h);
+    stops.forEach((s,i)=>gr.addColorStop(i/(stops.length-1),s));
+    g2.fillStyle=gr;g2.fillRect(0,0,W,h);
+    _gradCache[key]=cnv;
+  }
+  ctx.drawImage(_gradCache[key],0,y);
+}
+
+// ── Lyssetjing: radial lyskjelde + djupe skuggar (overlay-blend) ──
+var _lightCache;
+function drawLight(){
+  if(!_lightCache)_lightCache={};
+  if(!_lightCache[currentLevel]){
+    const cnv=document.createElement('canvas');cnv.width=W;cnv.height=H;
+    const g2=cnv.getContext('2d');
+    // Lyskjelde per level: sol, overskya, solnedgang, nordlys
+    const pos={1:[290,46],2:[180,40],3:[180,300],4:[180,60]}[currentLevel]||[180,80];
+    const gr=g2.createRadialGradient(pos[0],pos[1],30,pos[0],pos[1],430);
+    gr.addColorStop(0,'rgba(255,250,230,.55)');
+    gr.addColorStop(.5,'rgba(255,255,255,0)');
+    gr.addColorStop(1,'rgba(15,15,55,.45)');
+    g2.fillStyle=gr;g2.fillRect(0,0,W,H);
+    _lightCache[currentLevel]=cnv;
+  }
+  ctx.globalCompositeOperation='overlay';
+  ctx.globalAlpha=.5;
+  ctx.drawImage(_lightCache[currentLevel],0,0);
+  ctx.globalCompositeOperation='source-over';
+  ctx.globalAlpha=1;
+}
+
+// ── Mode-7-aktig bakkeperspektiv: nærare rader rullar fortare ──
+function drawGroundPersp(){
+  const cols={1:'rgba(8,38,8,.22)',2:'rgba(25,25,25,.20)',3:'rgba(255,255,255,.16)',4:'rgba(255,255,255,.14)'};
+  ctx.fillStyle=cols[currentLevel]||'rgba(0,0,0,.18)';
+  for(let row=0;row<5;row++){
+    const ry=GY+10+row*9;
+    const sp=.35+row*.22;
+    const seg=46+row*14;
+    for(let k=0;k<10;k++){
+      const gx2=((k*seg-camX*sp)%(W+seg)+W+seg)%(W+seg)-seg/2;
+      ctx.fillRect(gx2,ry,seg*.42,2+row);
+    }
+  }
+}
+
+// ── Forgrunns-parallakse: silhuettar som rullar raskare enn spelet ──
+function drawForeground(){
+  const fgc={1:'rgba(6,26,8,.85)',2:'rgba(18,20,24,.85)',3:'rgba(235,240,248,.88)',4:'rgba(222,232,244,.88)'};
+  ctx.fillStyle=fgc[currentLevel]||'rgba(0,0,0,.8)';
+  for(let k=0;k<7;k++){
+    const fx2=((k*260-camX*1.35)%(W+200)+W+200)%(W+200)-100;
+    if(currentLevel===1){
+      // Gras-tustar
+      ctx.fillRect(fx2,H-26,4,26);ctx.fillRect(fx2+6,H-34,5,34);
+      ctx.fillRect(fx2+13,H-22,4,22);ctx.fillRect(fx2+18,H-30,4,30);
+    }else if(currentLevel===2){
+      // Pullertar på kaia
+      ctx.fillRect(fx2,H-30,14,30);ctx.fillRect(fx2-2,H-32,18,5);
+    }else{
+      // Snøfonner
+      ctx.beginPath();ctx.ellipse(fx2+30,H+12,62,26+(k%3)*6,0,0,7);ctx.fill();
+    }
+  }
+}
 
 function popup(x,y,txt,col,big){popups.push({x,y,txt,col:col||'#ffec00',big:!!big,life:46});}
 
@@ -2217,9 +2281,17 @@ function drawProjs(){
   });
 }
 
-// HUD-overlay: boss-HP-bar, rock-modus-bar, combo-teljar
+// HUD-overlay: nedteljing, boss-HP-bar, rock-modus-bar, combo-teljar
 function drawHUDX(){
   if(state!=='playing')return;
+  // Tid igjen (grøn → gul → raud, blinkar siste 10 sek)
+  const sLeft=Math.ceil(timeLeft/60);
+  const tcol=timeLeft>1800?'#aaffaa':timeLeft>600?'#ffec00':'#ff4444';
+  if(timeLeft>600||fc%30<20){
+    ctx.font='bold 11px monospace';
+    ctx.fillStyle='#000';ctx.fillText('TID '+sLeft,7,17);
+    ctx.fillStyle=tcol;ctx.fillText('TID '+sLeft,6,16);
+  }
   const b=enemies.find(e=>e.alive&&BOSS_T[e.t]&&e.ann&&Math.abs(e.x-P.x)<430);
   if(b){
     const mh=b.t==='tg'?3:2;
@@ -2245,10 +2317,8 @@ function drawHUDX(){
 
 // ── Henningsvær bakgrunn: polarnatt, nordlys, rorbuer, hjell ──
 function drawBGHenningsvaer(){
-  // Arktisk nattehimmel
-  const skyN=['#04060f','#060a18','#081020','#0a1628','#0c1c30','#0e2238','#102840','#122e48'];
-  const bh=Math.ceil(H*.5/skyN.length)+1;
-  skyN.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,i*bh,W,bh+1);});
+  // Arktisk nattehimmel (mjuk gradient)
+  skyGrad('l4sky',['#04060f','#081020','#0c1c30','#102840','#16365a'],0,Math.ceil(H*.52));
 
   // Stjerner (blinkar)
   for(let s=0;s<40;s++){
@@ -2336,10 +2406,8 @@ function drawBGHenningsvaer(){
     for(let f2=0;f2<6;f2++)ctx.fillRect(hx+6+f2*7,GY-20,3,7);
   }
 
-  // Snødekt kai
-  const gndN=['#cfd8e4','#bcc8d8','#a8b6c8','#94a4b8','#8094a8','#6a8098'];
-  const gh=Math.ceil((H-GY)/gndN.length)+1;
-  gndN.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,GY+i*gh,W,gh+1);});
+  // Snødekt kai (mjuk gradient)
+  skyGrad('l4gnd',['#cfd8e4','#a8b6c8','#8094a8','#6a8098'],GY,H-GY);
   ctx.fillStyle='#eef4fb';ctx.fillRect(0,GY,W,4);
   ctx.fillStyle='#00000018';
   for(let g=0;g<26;g++){const gx2=((g*46-camX*.18)%(W+40)+W+40)%(W+40)-20;ctx.fillRect(gx2,GY+8,2,H-GY-8);}
@@ -2504,6 +2572,7 @@ function initLevel(){
   let nspec=0;
   items.forEach(it=>{if(it.t==='special'){nspec++;if(nspec!==1&&nspec!==4)it.t='coin';}});
   camX=0;parts=[];popups=[];projs=[];rockT=0;hitPause=0;
+  timeLeft=100*60; // 100 sekund per level — resten blir tidsbonus
   P.combo=0;P.land=0;
   resetP();
 }
@@ -2561,6 +2630,11 @@ function update(){
   if(state!=='playing')return;
   if(hitPause>0){hitPause--;updShake();return;} // frys eit augneblink ved boss-treff
   fc++;
+  // Nedteljing: tida som er igjen blir bonuspoeng ved levelslutt
+  if(timeLeft>0){
+    timeLeft--;
+    if(timeLeft<600&&timeLeft>0&&timeLeft%60===0)beep(880,'square',.05,.15); // tikk siste 10 sek
+  }
   updShake();updP();
 
   const left=keys.l,right=keys.r,jump=keys.j;
@@ -2727,20 +2801,26 @@ function update(){
     return --pr.life>0;
   });
 
-  // Level-slutt
+  // Level-slutt (+ tidsbonus: 10 poeng per sekund igjen på klokka)
   if(P.x>LW-100){
+    const tb=Math.ceil(timeLeft/60)*10;
+    if(tb>0)score+=tb;
+    upd();
+    const tbTxt=tb>0
+      ?'<span style="color:#ffec00">⏱ TIDSBONUS: +'+tb+'!</span><br>'
+      :'<span style="color:#ff8888">⏱ Tida gjekk ut – ingen bonus!</span><br>';
     if(currentLevel===1){
       state='levelup';currentLevel=2;musicStop();sfxWin();
-      msgShow('LEVEL 1 KLART! 🎸','Bergen kallar...','Tjommiar ventar! Mågni er farleg!','TIL BERGEN →',false);
+      msgShow('LEVEL 1 KLART! 🎸','Bergen kallar...',tbTxt+'Tjommiar ventar! Mågni er farleg!','TIL BERGEN →',false);
     }else if(currentLevel===2){
       state='levelup';currentLevel=3;musicStop();sfxWin();
-      msgShow('LEVEL 2 KLART! 🎸','Voss kallar...','Natabjødnar ventar! Ordføraren kjem!','TIL VOSS →',false);
+      msgShow('LEVEL 2 KLART! 🎸','Voss kallar...',tbTxt+'Natabjødnar ventar! Ordføraren kjem!','TIL VOSS →',false);
     }else if(currentLevel===3){
       state='levelup';currentLevel=4;musicStop();sfxWin();
-      msgShow('LEVEL 3 KLART! 🎸','Henningsvær kallar...','Lofottorskar ventar! Trusegutt spring laus – i berre trusa! 🩲','TIL HENNINGSVÆR →',false);
+      msgShow('LEVEL 3 KLART! 🎸','Henningsvær kallar...',tbTxt+'Lofottorskar ventar! Trusegutt spring laus – i berre trusa! 🩲','TIL HENNINGSVÆR →',false);
     }else{
       state='win';musicStop();sfxWin();showWin();
-      document.getElementById('mbody').textContent='Henningsvær er redda! Heile Noreg rocka tørt! 🎸';
+      document.getElementById('mbody').innerHTML=tbTxt+'Henningsvær er redda! Heile Noreg rocka tørt! 🎸';
     }
   }
 }
@@ -2766,6 +2846,7 @@ function draw(){
   ctx.fillStyle='rgba('+fogC+',.08)';ctx.fillRect(0,GY-66,W,26);
   ctx.fillStyle='rgba('+fogC+',.13)';ctx.fillRect(0,GY-44,W,20);
   ctx.fillStyle='rgba('+fogC+',.18)';ctx.fillRect(0,GY-26,W,26);
+  drawGroundPersp();
   drawGoal();drawPlatforms();drawShadows();
   items.forEach(drawItem);
   enemies.forEach(e=>{
@@ -2783,11 +2864,13 @@ function draw(){
   drawP();
   if(P.inv===0||fc%6<4)drawCurrentPlayer(P.x,P.y);
   drawWeather();
+  drawForeground();
   // Lynglimt i Bergen-regnet
   if(currentLevel===2&&state==='playing'&&fc%430<3){
     ctx.fillStyle='rgba(255,255,255,'+(fc%430===0?'.32':'.14')+')';
     ctx.fillRect(0,0,W,H);
   }
+  drawLight();
   drawPopups();
   drawHUDX();
   drawFX();
