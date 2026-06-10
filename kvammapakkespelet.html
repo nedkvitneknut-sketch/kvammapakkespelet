@@ -2912,32 +2912,86 @@ function drawCurrentPlayer(x,y){
 // ── Rein loop — all logikk ligg no i update() ──
 function loop(){update();draw();requestAnimationFrame(loop);}
 
-// ── Musikk: transponert + raskare tempo per level ──
+// ── Musikk: «Queen of Kings»-chiptune i D-moll, 130 BPM ──
+// Struktur som originalen: chant → vers → pre-chorus → refreng → drop
 const LVL_TRANS={1:0,2:-2,3:3,4:5},LVL_TEMPO={1:1,2:.96,3:.92,4:.86};
+const QK_STEP=60000/130/2; // 130 BPM, åttandedelar
+
+const QK_MEL=[
+  // CHANT — den ikoniske «ah… ah-ah-ah»-opninga (4 takter)
+  74,0,74,74,72,70,72,0,   74,0,74,74,72,70,69,0,
+  70,0,70,70,69,67,69,0,   65,0,67,0,69,0,0,0,
+  // VERS — mørkt og marsjerande (4 takter)
+  62,0,0,62,62,0,64,65,    64,0,0,62,62,0,0,0,
+  62,0,0,62,62,0,64,65,    67,0,65,64,64,62,62,0,
+  // PRE-CHORUS — byggjer seg opp (4 takter)
+  65,0,65,65,67,0,69,0,    69,0,69,69,70,0,72,0,
+  70,0,70,70,72,0,74,0,    76,0,74,0,72,0,70,72,
+  // REFRENG — «I'm the queen of kings» (8 takter)
+  74,0,0,74,72,74,77,0,    76,0,74,0,72,0,70,0,
+  74,0,0,74,72,74,76,0,    77,0,76,0,74,0,72,0,
+  74,0,0,74,72,74,77,0,    79,0,77,0,76,0,74,0,
+  72,0,72,72,74,0,76,0,    74,0,0,0,74,0,0,0,
+  // DROP — folkedans-riffet (4 takter)
+  74,76,77,76,74,72,74,70, 72,74,76,74,72,70,72,69,
+  74,76,77,76,74,72,74,77, 76,74,72,70,69,67,69,0,
+];
+const QK_BAS=[
+  // Chant: Dm | Bb | Gm | A
+  62,0,62,0,62,0,62,0, 58,0,58,0,58,0,58,0, 67,0,67,0,67,0,67,0, 57,0,57,0,57,0,57,0,
+  // Vers: Dm | Bb | C | A
+  62,0,62,0,62,0,62,0, 58,0,58,0,58,0,58,0, 60,0,60,0,60,0,60,0, 57,0,57,0,57,0,57,0,
+  // Pre: Bb | C | Bb | A
+  58,0,58,0,58,0,58,0, 60,0,60,0,60,0,60,0, 58,0,58,0,58,0,58,0, 57,0,57,0,57,0,57,0,
+  // Refreng: Dm Bb F C | Dm Bb Gm A
+  62,0,62,0,62,0,62,0, 58,0,58,0,58,0,58,0, 65,0,65,0,65,0,65,0, 60,0,60,0,60,0,60,0,
+  62,0,62,0,62,0,62,0, 58,0,58,0,58,0,58,0, 67,0,67,0,67,0,67,0, 57,0,57,0,57,0,57,0,
+  // Drop: Dm | C | Bb | A
+  62,0,62,0,62,0,62,0, 60,0,60,0,60,0,60,0, 58,0,58,0,58,0,58,0, 57,0,57,0,57,0,57,0,
+];
+// Grunntone per takt (for arp-glitteret i refreng/drop)
+const QK_CHORDS=[62,58,67,57, 62,58,60,57, 58,60,58,57, 62,58,65,60, 62,58,67,57, 62,60,58,57];
+
 function seqTick(){
   if(!seqRunning||!AC||muted)return;
-  const i=seqStep%MEL.length;
+  const i=seqStep%QK_MEL.length;
+  const bar=(i/8)|0;
   const t=AC.currentTime+0.02;
   const off=LVL_TRANS[currentLevel]||0;
-  const sm=STEP_MS*(LVL_TEMPO[currentLevel]||1)*(rockT>0?0.82:1); // rock-modus = turbo
+  const sm=QK_STEP*(LVL_TEMPO[currentLevel]||1)*(rockT>0?0.82:1); // rock-modus = turbo
   const sd=sm/1000;
-  if(MEL[i]){
+  const chorus=bar>=12; // refreng + drop: meir trøkk
+
+  // Melodi (square-lead, droppet litt sterkare)
+  if(QK_MEL[i]){
     const o=AC.createOscillator(),g=AC.createGain();
-    o.type='square';o.frequency.value=mHz(MEL[i]+off);
+    o.type='square';o.frequency.value=mHz(QK_MEL[i]+off);
     o.connect(g);g.connect(MG);
-    g.gain.setValueAtTime(0.14,t);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.75);
-    o.start(t);o.stop(t+sd*0.78);
+    g.gain.setValueAtTime(bar>=20?0.16:0.13,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.78);
+    o.start(t);o.stop(t+sd*0.8);
   }
-  if(BAS[i%BAS.length]&&i%2===0){
+  // Bass-pump
+  if(QK_BAS[i]&&i%2===0){
     const o=AC.createOscillator(),g=AC.createGain();
-    o.type='triangle';o.frequency.value=mHz(BAS[i%BAS.length]+off-12);
+    o.type='triangle';o.frequency.value=mHz(QK_BAS[i]+off-12);
     o.connect(g);g.connect(MG);
-    g.gain.setValueAtTime(0.16,t);
+    g.gain.setValueAtTime(0.17,t);
     g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.85);
     o.start(t);o.stop(t+sd*0.88);
   }
-  if(i%8===0||i%8===4){
+  // Arp-glitter på offbeats i refreng/drop (oktav + kvint)
+  if(chorus&&i%2===1){
+    const ch=QK_CHORDS[bar]||62;
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='triangle';o.frequency.value=mHz(((i%4===1)?ch+12:ch+19)+off);
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.06,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.5);
+    o.start(t);o.stop(t+sd*0.52);
+  }
+  // Kick: marsj (1+3) i vers, fire-på-golvet i refreng/drop
+  if(chorus?i%2===0:(i%8===0||i%8===4)){
     const o=AC.createOscillator(),g=AC.createGain();
     o.type='sine';o.frequency.setValueAtTime(130,t);
     o.frequency.exponentialRampToValueAtTime(38,t+0.1);
@@ -2945,6 +2999,15 @@ function seqTick(){
     g.gain.setValueAtTime(0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.11);
     o.start(t);o.stop(t+0.12);
   }
+  // Hi-hat på offbeats i refreng/drop
+  if(chorus&&i%2===1){
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='square';o.frequency.value=6800;
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.025,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.03);
+    o.start(t);o.stop(t+0.035);
+  }
+  // Skarptromme 2+4
   if(i%8===2||i%8===6){
     const o=AC.createOscillator(),g=AC.createGain();
     o.type='sawtooth';o.frequency.value=160;
