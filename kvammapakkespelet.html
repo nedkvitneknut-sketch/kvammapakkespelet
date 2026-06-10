@@ -2169,6 +2169,76 @@ document.getElementById('mok').addEventListener('click',function(){
 
 const BOSS_T={vk:'VIKØYJENTO',m:'MÅGNI',po:"P'OLAV",of:'ORDFØRAREN',tg:'TRUSEGUTT'};
 const REG_T={t:'KALKUN! +%s 🦃',tj:'TJOMMI! +%s 🐟',nb:'NATABJØDN! +%s 🐿️',lf:'LOFOTTORSK! +%s 🐟'};
+const RAINBOW=['#ff4444','#ffaa00','#ffec00','#44ee44','#44aaff','#cc66ff'];
+
+// Nye system: score-popups, boss-prosjektil, rock-modus, hit-pause
+// (var-deklarasjonar hoistar; initLevel set verdiane før første draw)
+var popups,projs,rockT,hitPause;
+
+function popup(x,y,txt,col,big){popups.push({x,y,txt,col:col||'#ffec00',big:!!big,life:46});}
+
+function drawPopups(){
+  popups=popups.filter(p=>{
+    p.y-=.8;p.life--;
+    ctx.globalAlpha=Math.min(1,p.life/20);
+    ctx.font='bold '+(p.big?10:8)+'px monospace';
+    ctx.fillStyle='#000';ctx.fillText(p.txt,wx(p.x)+1,wy(p.y)+1);
+    ctx.fillStyle=p.col;ctx.fillText(p.txt,wx(p.x),wy(p.y));
+    return p.life>0;
+  });
+  ctx.globalAlpha=1;
+}
+
+// Boss-prosjektil per level: kringle / fisk / papir / snøball
+function drawProjs(){
+  projs.forEach(pr=>{
+    const x=wx(pr.x)|0,y=wy(pr.y)|0;
+    if(x<-20||x>W+20)return;
+    if(currentLevel===4){
+      ctx.fillStyle='#eef4ff';ctx.fillRect(x-4,y-4,9,9);
+      ctx.fillStyle='#fff';ctx.fillRect(x-3,y-3,5,5);
+      ctx.fillStyle='#ccd8e8';ctx.fillRect(x,y+1,3,3);
+    }else if(currentLevel===3){
+      const fl=Math.sin(fc*.3+pr.x)*2;
+      ctx.fillStyle='#f4f4ee';ctx.fillRect(x-5,y-3+fl,11,8);
+      ctx.fillStyle='#888';ctx.fillRect(x-3,y-1+fl,7,1);ctx.fillRect(x-3,y+1+fl,7,1);ctx.fillRect(x-3,y+3+fl,5,1);
+    }else if(currentLevel===2){
+      ctx.fillStyle='#8a9aa8';ctx.fillRect(x-6,y-2,10,5);
+      ctx.fillStyle='#6a7a88';ctx.fillRect(x+4,y-3,4,7);
+      ctx.fillStyle='#fff';ctx.fillRect(x-5,y-1,2,2);
+    }else{
+      ctx.fillStyle='#b8742a';ctx.fillRect(x-5,y-5,10,10);
+      ctx.fillStyle='#8a5a1a';ctx.fillRect(x-2,y-2,4,4);
+      ctx.fillStyle='#e8c890';ctx.fillRect(x-4,y-5,2,2);ctx.fillRect(x+2,y-1,2,2);
+    }
+  });
+}
+
+// HUD-overlay: boss-HP-bar, rock-modus-bar, combo-teljar
+function drawHUDX(){
+  if(state!=='playing')return;
+  const b=enemies.find(e=>e.alive&&BOSS_T[e.t]&&e.ann&&Math.abs(e.x-P.x)<430);
+  if(b){
+    const mh=b.t==='tg'?3:2;
+    ctx.fillStyle='#000000aa';ctx.fillRect(W/2-64,5,128,17);
+    ctx.fillStyle='#550000';ctx.fillRect(W/2-60,14,120,5);
+    ctx.fillStyle='#ff3344';ctx.fillRect(W/2-60,14,120*Math.max(0,b.hp)/mh,5);
+    ctx.fillStyle='#fff';ctx.font='bold 6px monospace';ctx.textAlign='center';
+    ctx.fillText(BOSS_T[b.t],W/2,12);ctx.textAlign='left';
+  }
+  if(rockT>0){
+    ctx.fillStyle='#000000aa';ctx.fillRect(W/2-54,H-20,108,12);
+    ctx.fillStyle=RAINBOW[(fc/4|0)%6];
+    ctx.fillRect(W/2-52,H-18,104*rockT/360,8);
+    ctx.font='bold 6px monospace';ctx.fillStyle='#fff';ctx.textAlign='center';
+    ctx.fillText('ROCK ME DRY!',W/2,H-23);ctx.textAlign='left';
+  }
+  if(P.combo>1&&!P.ground){
+    ctx.font='bold 14px monospace';
+    ctx.fillStyle='#000';ctx.fillText('x'+P.combo,W-43,31);
+    ctx.fillStyle='#ff8844';ctx.fillText('x'+P.combo,W-44,30);
+  }
+}
 
 // ── Henningsvær bakgrunn: polarnatt, nordlys, rorbuer, hjell ──
 function drawBGHenningsvaer(){
@@ -2421,7 +2491,9 @@ function initLevel(){
   else if(currentLevel===2){plats=mkPlats2();items=mkItems2();enemies=mkEnemies2();}
   else if(currentLevel===3){plats=mkPlats3();items=mkItems3();enemies=mkEnemies3();}
   else{plats=mkPlats4();items=mkItems4();enemies=mkEnemies4();}
-  camX=0;parts=[];resetP();
+  camX=0;parts=[];popups=[];projs=[];rockT=0;hitPause=0;
+  P.combo=0;P.land=0;
+  resetP();
 }
 
 // ── Plattformer: + Henningsvær-kai ('h') ──
@@ -2464,14 +2536,15 @@ function drawWeather(){
   ctx.globalAlpha=1;
 }
 
-// ── update: all spellogikk, combo-system, mjukt kamera ──
+// ── update: all spellogikk, combo, rock-modus, prosjektil, juice ──
 function update(){
   if(state!=='playing')return;
+  if(hitPause>0){hitPause--;updShake();return;} // frys eit augneblink ved boss-treff
   fc++;
   updShake();updP();
 
   const left=keys.l,right=keys.r,jump=keys.j;
-  const spd=3.4;
+  const spd=rockT>0?4.1:3.4; // raskare i rock-modus
   if(left){P.vx=Math.max(P.vx-.9,-spd);P.face=-1;}
   if(right){P.vx=Math.min(P.vx+.9,spd);P.face=1;}
   if(!left&&!right)P.vx*=.72;
@@ -2481,11 +2554,13 @@ function update(){
     P.vy=-9.5;P.jh=true;P.jl--;
   }
   if(!jump)P.jh=false;
+  if(!jump&&P.vy<-3)P.vy*=.82; // variabel hopphøgd: slepp tidleg = kort hopp
 
   P.vy=Math.min(P.vy+G,13);
   P.x+=P.vx;P.y+=P.vy;
   P.x=Math.max(0,Math.min(LW-P.w,P.x));
 
+  const wasGround=P.ground,fallV=P.vy;
   P.ground=false;
   for(const p of plats){
     if(!hit(P.x,P.y,P.w,P.h,p.x,p.y,p.w,p.h))continue;
@@ -2494,8 +2569,24 @@ function update(){
     else if(P.vy<0&&pt>=p.y+p.h-4){P.y=p.y+p.h;P.vy=1;}
     else{P.x=P.x+P.w/2<p.x+p.w/2?p.x-P.w:p.x+p.w;P.vx=0;}
   }
+  // Landing: squash-animasjon + støvsky + dunk ved hardt fall
+  if(P.ground&&!wasGround){
+    P.land=8;
+    if(fallV>5)spawnP(P.x+12,P.y+P.h-2,6,['#ffffff','#cccccc','#999999']);
+    if(fallV>9){shake(3,5);beep(90,'sawtooth',.08,.2);}
+  }
+  if(P.land>0)P.land--;
   if(P.ground)P.combo=0;
+  // Springestøv
+  if(P.ground&&Math.abs(P.vx)>2&&fc%6===0)spawnP(P.x+(P.face<0?20:4),P.y+P.h-2,1,['#cccccc','#aabb99']);
   if(P.y>H+100){die();return;}
+
+  // Rock-modus: regnboge-spor
+  if(rockT>0){
+    rockT--;
+    if(fc%2===0)parts.push({x:P.x+4+Math.random()*16,y:P.y+8+Math.random()*34,
+      vx:-(P.vx*.25)+(Math.random()-.5),vy:-.4,life:16,ml:16,col:RAINBOW[(fc/2|0)%6],sz:3});
+  }
 
   // Mjukt kamera med blikk framover
   const camT=Math.max(0,Math.min(LW-W,P.x-W/2+P.w/2+P.face*36));
@@ -2507,7 +2598,7 @@ function update(){
     if(it.got)continue;
     if(!hit(P.x,P.y,P.w,P.h,it.x,it.y,22,22))continue;
     it.got=true;
-    if(it.t==='coin'){score+=10;ft('+10');sfxCoin();}
+    if(it.t==='coin'){score+=10;popup(it.x+10,it.y-4,'+10','#ffec00');sfxCoin();}
     else if(it.t==='shield'){
       P.pow=true;score+=50;sfxBeanie();
       var shieldTxt={tore:'BEANIE PÅ! 🧢',sindre:'CAPS PÅ! 🧢',simon:'HJELM PÅ! 🚵',sveinolav:'SNOWBOARDHJELM PÅ! 🏂',knut:'CAPS PÅ! 🧢'};
@@ -2515,40 +2606,63 @@ function update(){
       spawnP(P.x+12,P.y,18,['#44aaff','#88ccff','#fff','#ffec00']);
     }
     else if(it.t==='special'){
-      score+=30;sfxDrum();
+      // ROCK ME DRY-MODUS: 6 sekund udøyeleg!
+      score+=30;sfxDrum();rockT=360;
       var specTxt={tore:'ROCK ME DRY! 🥁',sindre:'SETT SEGL! ⛵',simon:'SYKKEL BOOST! 🚴',sveinolav:'SHRED IT! 🏂',knut:'BLUESY! 🎷'};
-      ft(specTxt[selectedChar]||'ITEM!');
+      ft((specTxt[selectedChar]||'ITEM!')+' UDØYELEG! 🤘');
+      spawnP(P.x+12,P.y+20,16,RAINBOW);
     }
     else if(it.t==='drum'){score+=30;ft('ROCK ME DRY! 🥁');sfxDrum();}
     upd();
   }
 
-  // Fiende-kollisjonar (med combo-system!)
+  // Fiende-kollisjonar (combo-system + rock-modus)
   if(P.inv>0){P.inv--;}
   else{
     for(const e of enemies){
       if(!e.alive||e.stun>0)continue;
       if(!hit(P.x,P.y,P.w,P.h,e.x,e.y,e.w,e.h))continue;
+      if(rockT>0){
+        // Rock-modus: berre å ta på dei = poeng
+        if(REG_T[e.t]){
+          e.alive=false;score+=100;upd();sfxKill();
+          popup(e.x+10,e.y-6,'+100','#ffec00');
+          spawnP(e.x+16,e.y,12,RAINBOW);
+        }else{
+          const bn=BOSS_T[e.t]||'BOSS';
+          e.hp--;e.stun=40;e.wt=0;shake(6,10);sfxHurt();hitPause=5;
+          spawnP(e.x+18,e.y,14,RAINBOW);
+          if(e.hp<=0){
+            e.alive=false;score+=500;upd();hitPause=9;
+            popup(e.x+10,e.y-10,bn+' +500','#ff88cc',true);
+            spawnP(e.x+18,e.y+28,28,RAINBOW);shake(10,18);
+          }else popup(e.x+10,e.y-10,bn+' STUNN!','#fff');
+        }
+        continue;
+      }
       const stomping=P.vy>0.5&&P.y+P.h<e.y+e.h*.48+10;
       if(stomping){
         P.combo=(P.combo||0)+1;
         if(REG_T[e.t]){
           const bonus=100+(P.combo-1)*50;
-          e.alive=false;P.vy=-7;score+=bonus;upd();
+          e.alive=false;P.vy=jump?-9:-7;score+=bonus;upd(); // hald HOPP inne = sprett høgare
           spawnP(e.x+16,e.y,10,['#dd7700','#ffbb00','#fff']);
-          ft(P.combo>1?('COMBO x'+P.combo+'! +'+bonus+' 🔥'):REG_T[e.t].replace('%s',bonus));
+          if(P.combo>1){
+            popup(e.x+10,e.y-8,'COMBO x'+P.combo+'! +'+bonus,'#ff8844',true);
+            beep(440+P.combo*90,'square',.07,.22); // combo-tone stig
+          }else popup(e.x+10,e.y-8,'+'+bonus,'#ffec00');
           sfxKill();
         }else{
           const bname=BOSS_T[e.t]||'BOSS';
-          e.hp--;P.vy=-8;
+          e.hp--;P.vy=-8;hitPause=5;
           spawnP(e.x+18,e.y,14,['#cc2200','#ff4444','#fff','#ffec00']);
           shake(6,12);sfxHurt();
           if(e.hp<=0){
             const bonus=500+(P.combo-1)*100;
-            e.alive=false;score+=bonus;upd();
+            e.alive=false;score+=bonus;upd();hitPause=9;
             spawnP(e.x+18,e.y+28,28,['#ff4444','#ffec00','#fff','#ff88cc']);
-            shake(10,20);ft(bname+' STOPPA! +'+bonus+' 💥');
-          }else{e.stun=40;e.wt=60;ft(bname+' STUNN! ⭐');}
+            shake(10,20);popup(e.x+12,e.y-12,bname+' STOPPA! +'+bonus,'#ff88cc',true);
+          }else{e.stun=40;e.wt=60;popup(e.x+12,e.y-12,bname+' STUNN! ⭐','#fff');}
         }
       }else{
         if(BOSS_T[e.t])shake(8,16);
@@ -2557,7 +2671,7 @@ function update(){
     }
   }
 
-  // Fiende-AI (alle bossar samla på éin stad)
+  // Fiende-AI (alle bossar samla på éin stad) + prosjektilkast
   for(const e of enemies){
     if(!e.alive)continue;
     if(e.stun>0){e.stun--;continue;}
@@ -2568,11 +2682,30 @@ function update(){
       if(Math.abs(dx)<340){e.vx+=(dx>0?.06:-.06);if(Math.abs(dx)<200&&!e.wt)e.wt=30;}
       const cap=e.t==='tg'?3.6:3.2; // Trusegutt spring fortare — han må halde varmen
       e.vx=Math.max(-cap,Math.min(cap,e.vx));
+      // Kast prosjektil: kringle/fisk/papir/snøball
+      e.pcd=(e.pcd||60)-1;
+      if(e.ann&&Math.abs(dx)<330&&e.pcd<=0){
+        projs.push({x:e.x+e.w/2,y:e.y+10,vx:(dx>0?1:-1)*(2.4+(e.x%10)*.1),vy:-4.5-(e.x%7)*.3,life:240});
+        beep(220,'square',.06,.18);
+        e.pcd=100+(e.x%80);
+      }
     }
     e.x+=e.vx;
     if(e.x<10)e.vx=Math.abs(e.vx);
     if(e.x>LW-e.w-10)e.vx=-Math.abs(e.vx);
   }
+
+  // Prosjektil: tyngdekraft, treff bakke eller spelar
+  projs=projs.filter(pr=>{
+    pr.vy+=.22;pr.x+=pr.vx;pr.y+=pr.vy;
+    if(pr.y>GY-3){spawnP(pr.x,GY-2,4,['#ffffff','#cccccc']);return false;}
+    if(hit(P.x,P.y,P.w,P.h,pr.x-5,pr.y-5,10,10)){
+      if(rockT>0){score+=10;upd();popup(pr.x,pr.y,'+10','#ffec00');spawnP(pr.x,pr.y,6,['#ffec00','#fff']);}
+      else if(P.inv<=0){hitPlayer();}
+      return false;
+    }
+    return --pr.life>0;
+  });
 
   // Level-slutt
   if(P.x>LW-100){
@@ -2592,7 +2725,7 @@ function update(){
   }
 }
 
-// ── draw: alle 4 levels + vêr ──
+// ── draw: alle 4 levels + prosjektil, popups, vêr og HUD ──
 function draw(){
   ctx.clearRect(0,0,W,H);
   if(currentLevel===2)drawBGBergen();
@@ -2612,9 +2745,33 @@ function draw(){
     else if(e.t==='of')drawOrdforer(e);
     else if(e.t==='tg')drawTrusegutt(e);
   });
+  drawProjs();
   drawP();
   if(P.inv===0||fc%6<4)drawCurrentPlayer(P.x,P.y);
   drawWeather();
+  drawPopups();
+  drawHUDX();
+}
+
+// ── Spelar med squash & stretch + regnboge-aura ──
+function drawCurrentPlayer(x,y){
+  ctx.save();
+  ctx.translate(wx(x)+12,wy(y)+48);
+  let sx=1,sy=1;
+  if(P.land>0){const k=P.land/8;sy=1-.16*k;sx=1+.18*k;}       // squash ved landing
+  else if(!P.ground){const v=Math.min(Math.abs(P.vy)/13,1);sy=1+.10*v;sx=1-.08*v;} // stretch i lufta
+  ctx.scale(P.face<0?-sx:sx,sy);
+  ctx.translate(0,-48);
+  if(rockT>0){
+    ctx.globalAlpha=.45+.3*Math.sin(fc*.5);
+    ctx.fillStyle=RAINBOW[(fc/3|0)%6];
+    ctx.fillRect(-16,-12,32,3);ctx.fillRect(-16,52,32,3);
+    ctx.fillRect(-18,-8,3,58);ctx.fillRect(15,-8,3,58);
+    ctx.globalAlpha=1;
+  }
+  drawCharBody(selectedChar,ctx,P.pow,fc);
+  if(!P.ground&&P.jl===1){ctx.fillStyle='#ffec0088';ctx.fillRect(-4,-8,8,3);}
+  ctx.restore();
 }
 
 // ── Rein loop — all logikk ligg no i update() ──
@@ -2627,7 +2784,7 @@ function seqTick(){
   const i=seqStep%MEL.length;
   const t=AC.currentTime+0.02;
   const off=LVL_TRANS[currentLevel]||0;
-  const sm=STEP_MS*(LVL_TEMPO[currentLevel]||1);
+  const sm=STEP_MS*(LVL_TEMPO[currentLevel]||1)*(rockT>0?0.82:1); // rock-modus = turbo
   const sd=sm/1000;
   if(MEL[i]){
     const o=AC.createOscillator(),g=AC.createGain();
