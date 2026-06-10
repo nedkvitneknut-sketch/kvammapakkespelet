@@ -26,23 +26,27 @@ body{background:radial-gradient(ellipse at 50% 28%,#2c5c2c 0%,#16321a 55%,#0a1e0
 #c{box-shadow:0 0 30px #44aa4455,0 0 60px #44aa4422;}
 #gw{position:relative;width:360px;max-width:100vw;}
 #hud{display:flex;justify-content:space-between;align-items:center;
-  padding:5px 8px;background:#0a200a;border:2px solid #44aa44;border-bottom:none;
-  font-size:7px;color:#fff;}
+  padding:5px 8px;background:linear-gradient(180deg,#16451a,#0a200a);
+  border:2px solid #4cc24c;border-bottom:none;
+  font-size:7px;color:#fff;text-shadow:1px 1px #000;}
 #hud .sc{color:#ffec00;} #hud .pw{color:#ff88cc;}
-canvas{display:block;border:2px solid #44aa44;image-rendering:auto;}
+canvas{display:block;border:2px solid #4cc24c;image-rendering:auto;}
 #ctrl{display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;background:#0a200a;border:2px solid #44aa44;border-top:none;gap:8px;}
+  padding:10px 12px;background:linear-gradient(180deg,#123612,#081c08);
+  border:2px solid #4cc24c;border-top:none;gap:8px;}
 .dg{display:flex;gap:8px;}
-.cb{background:#1a3a1a;border:2px solid #44aa44;cursor:pointer;border-radius:8px;
+.cb{background:linear-gradient(180deg,#235b23,#142e14);border:2px solid #4cc24c;
+  cursor:pointer;border-radius:8px;box-shadow:0 3px 0 #061406,inset 0 1px 0 #44aa4466;
   width:68px;height:58px;display:flex;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;user-select:none;}
-.cb:active,.cb.on{background:#33883388;}
-.jb{background:#1a3a1a;border:2px solid #ffec00;color:#ffec00;
-  font-family:'Press Start 2P',monospace;font-size:8px;
+.cb:active,.cb.on{background:#33883388;transform:translateY(2px);box-shadow:0 1px 0 #061406;}
+.jb{background:linear-gradient(180deg,#3a4a14,#1c2608);border:2px solid #ffec00;color:#ffec00;
+  font-family:'Press Start 2P',monospace;font-size:8px;text-shadow:1px 1px #000;
   width:80px;height:58px;cursor:pointer;border-radius:8px;
+  box-shadow:0 3px 0 #061406,inset 0 1px 0 #ffec0044;
   display:flex;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0;}
-.jb:active,.jb.on{background:#ffec00;color:#000;}
+.jb:active,.jb.on{background:#ffec00;color:#000;text-shadow:none;transform:translateY(2px);box-shadow:0 1px 0 #061406;}
 #mb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   background:#0a200aee;border:3px solid #44aa44;padding:14px 18px;
   text-align:center;font-size:7px;color:#fff;line-height:2.2;z-index:10;
@@ -481,7 +485,7 @@ function drawMagni(e){
   if(e.vx>0)ctx.scale(-1,1);
   ctx.translate(-18,-28);
 
-  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  // (blinking fjerna — åtvaring blir vist som raudt «!» over hovudet i staden)
 
   const moving=Math.abs(e.vx)>0.2;
   const sw=moving?Math.sin(fc*.2)*5:0;
@@ -625,7 +629,7 @@ function drawPolav(e){
   if(e.vx>0)ctx.scale(-1,1);
   ctx.translate(-19,-29);
 
-  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  // (blinking fjerna — åtvaring blir vist som raudt «!» over hovudet i staden)
 
   const moving=Math.abs(e.vx)>0.2;
   const sw=moving?Math.sin(fc*.2)*5:0;
@@ -822,21 +826,32 @@ function drawBG(){
     ctx.fillRect(wx2,fjY+4,40,3);
   }
 
-  // ── Clouds ──
-  ctx.fillStyle='#ffffffcc';
+  // ── Mjuke skyer med skuggelagt underside ──
   for(let c=0;c<4;c++){
     const cx=((c*230+50-camX*.06+fc*.14)%(W+130)+W+130)%(W+130)-65;
     const cy=22+c*22;
-    ctx.fillRect(cx,cy+6,50,14);
-    ctx.fillRect(cx+8,cy,34,16);
-    ctx.fillRect(cx+14,cy-6,22,14);
+    ctx.fillStyle='#ffffffd8';
+    ctx.beginPath();
+    ctx.ellipse(cx+25,cy+9,26,9,0,0,7);
+    ctx.ellipse(cx+13,cy+4,14,9,0,0,7);
+    ctx.ellipse(cx+37,cy+4,13,8,0,0,7);
+    ctx.fill();
+    ctx.fillStyle='rgba(178,200,224,.45)';
+    ctx.beginPath();ctx.ellipse(cx+25,cy+14,23,5,0,0,7);ctx.fill();
   }
 
-  // ── Grass tufts ──
-  ctx.fillStyle='#44aa44';
+  // ── Gras som svaiar i vinden + markblomar ──
   for(let g=0;g<18;g++){
     const gx=((g*135-camX*.18)%(W+40)+W+40)%(W+40)-20;
-    ctx.fillRect(gx,GY-5,3,6); ctx.fillRect(gx+5,GY-7,3,8); ctx.fillRect(gx+9,GY-4,3,5);
+    const swg=(Math.sin(fc*.05+g)*1.5)|0;
+    ctx.fillStyle='#44aa44';
+    ctx.fillRect(gx+swg,GY-5,3,6); ctx.fillRect(gx+5+swg,GY-7,3,8); ctx.fillRect(gx+9+swg,GY-4,3,5);
+    ctx.fillStyle='#5fc55f';ctx.fillRect(gx+5+swg,GY-7,3,3);
+    if(g%3===0){
+      ctx.fillStyle='#44aa44';ctx.fillRect(gx+14,GY-4,1,5);
+      ctx.fillStyle=['#ffec00','#ff88cc','#ffffff'][(g/3|0)%3];
+      ctx.fillRect(gx+13+swg,GY-7,3,3);
+    }
   }
 
   // ── Pine trees ──
@@ -1582,7 +1597,7 @@ function drawVikoeyjento(e){
   const ex=wx(e.x)|0,ey=wy(e.y)|0;if(ex>W+80||ex+e.w<-80)return;
   const bob=Math.sin(fc*.1)*3|0,warn=e.wt>0;
   ctx.save();ctx.translate(ex+22,ey+31);if(e.vx>0)ctx.scale(-1,1);ctx.translate(-22,-31);
-  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  // (blinking fjerna — åtvaring blir vist som raudt «!» over hovudet i staden)
   const sw=Math.abs(e.vx)>.2?Math.sin(fc*.18)*5:0;
   ctx.fillStyle='#cc8888';ctx.fillRect(8,48+sw,10,12);ctx.fillRect(24,48-sw,10,12);
   ctx.fillStyle='#aa2222';ctx.fillRect(7,58+sw,12,4);ctx.fillRect(23,58-sw,12,4);
@@ -1618,7 +1633,7 @@ function drawOrdforer(e){
   const ex=wx(e.x)|0,ey=wy(e.y)|0;if(ex>W+80||ex+e.w<-80)return;
   const bob=Math.sin(fc*.1)*3|0,warn=e.wt>0;
   ctx.save();ctx.translate(ex+22,ey+31);if(e.vx>0)ctx.scale(-1,1);ctx.translate(-22,-31);
-  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  // (blinking fjerna — åtvaring blir vist som raudt «!» over hovudet i staden)
   const sw=Math.abs(e.vx)>.2?Math.sin(fc*.18)*4:0;
   ctx.fillStyle='#222244';ctx.fillRect(10,48+sw,10,12);ctx.fillRect(24,48-sw,10,12);
   ctx.fillStyle='#111133';ctx.fillRect(9,58+sw,12,4);ctx.fillRect(23,58-sw,12,4);
@@ -2226,6 +2241,93 @@ function drawGroundPersp(){
   }
 }
 
+// ── Fuglar med vengeslag ──
+function drawBirds(col,n){
+  ctx.fillStyle=col;
+  for(let b2=0;b2<n;b2++){
+    const bx3=((b2*173+47+fc*(.45+b2*.18))%(W+90))-45;
+    const by3=46+b2*26+Math.sin(fc*.05+b2*2)*7;
+    const fl=(Math.sin(fc*.25+b2)*3)|0;
+    ctx.fillRect(bx3-5,by3-fl,5,2);
+    ctx.fillRect(bx3,by3,3,2);
+    ctx.fillRect(bx3+3,by3-fl,5,2);
+  }
+}
+
+// ── Levande lag per level: liv i bakgrunnen ──
+function drawAmbient(){
+  if(currentLevel===1){
+    // Raud vestlandsgard med løe på åsen
+    const hx2=((180-camX*.1)%(W+500)+W+500)%(W+500)-250;
+    if(hx2>-100&&hx2<W+40){
+      ctx.fillStyle='#a82218';ctx.fillRect(hx2,GY-68,26,16);
+      ctx.fillStyle='#fff';ctx.fillRect(hx2+4,GY-62,5,6);ctx.fillRect(hx2+17,GY-62,5,6);
+      ctx.fillStyle='#33302a';
+      ctx.beginPath();ctx.moveTo(hx2-3,GY-68);ctx.lineTo(hx2+13,GY-78);ctx.lineTo(hx2+29,GY-68);ctx.fill();
+      const hx3=hx2+58;
+      ctx.fillStyle='#8a4a18';ctx.fillRect(hx3,GY-60,20,10);
+      ctx.fillStyle='#33302a';
+      ctx.beginPath();ctx.moveTo(hx3-2,GY-60);ctx.lineTo(hx3+10,GY-68);ctx.lineTo(hx3+22,GY-60);ctx.fill();
+    }
+    // Sol-glitter på fjorden
+    const sunX=((292-camX*.02)%(W+160)+W+160)%(W+160)-80;
+    const fjY=GY-26;
+    ctx.fillStyle='rgba(255,236,150,.3)';
+    for(let r2=0;r2<5;r2++){
+      const wob=Math.sin(fc*.07+r2*1.3)*6;
+      ctx.fillRect(sunX-10+wob,fjY+3+r2*4,Math.max(4,20-r2*3),2);
+    }
+    drawBirds('#223344',3);
+  }else if(currentLevel===2){
+    // Fiskebåt i hamna som duppar i regnet
+    const fjY=GY-30;
+    const bx2=((130-camX*.1)%(W+400)+W+400)%(W+400)-200;
+    const bob2=Math.sin(fc*.05)*2;
+    if(bx2>-60&&bx2<W+40){
+      ctx.fillStyle='#22303c';ctx.fillRect(bx2,fjY-7+bob2,40,8);
+      ctx.fillStyle='#2e3e4c';ctx.fillRect(bx2+6,fjY-13+bob2,14,7);
+      ctx.fillStyle='#445566';ctx.fillRect(bx2+26,fjY-18+bob2,3,12);
+      ctx.fillStyle='#ffd866';ctx.fillRect(bx2+9,fjY-11+bob2,3,3);
+      ctx.fillStyle='rgba(255,216,102,.2)';ctx.fillRect(bx2+8,fjY+3,8,2);
+    }
+    drawBirds('#dde4ea',2); // måkar
+  }else if(currentLevel===3){
+    // Paraglider i solnedgangen (Voss!)
+    const px2=((fc*.5)%(W+300))-150;
+    const py2=78+Math.sin(fc*.02)*16;
+    ctx.fillStyle='#1a0e22';
+    for(let s2=0;s2<7;s2++)ctx.fillRect(px2+s2*5-15,(py2-Math.sin(s2/6*Math.PI)*6)|0,5,3);
+    ctx.fillRect(px2,py2+7,3,5);
+    ctx.fillRect(px2-9,py2+2,1,6);ctx.fillRect(px2+9,py2+2,1,6);
+    drawBirds('#2a1430',2);
+  }else{
+    // Fiskebåt med lanterne på polarhavet
+    const seY=GY-34;
+    const bx2=((60-camX*.06)%(W+300)+W+300)%(W+300)-150;
+    const bob2=Math.sin(fc*.04)*2;
+    if(bx2>-70&&bx2<W+40){
+      ctx.fillStyle='#0a0e16';ctx.fillRect(bx2,seY-8+bob2,46,9);
+      ctx.fillStyle='#141a26';ctx.fillRect(bx2+8,seY-16+bob2,16,9);
+      ctx.fillStyle='#223044';ctx.fillRect(bx2+30,seY-20+bob2,3,13);
+      ctx.fillStyle='#ffd866';ctx.fillRect(bx2+12,seY-13+bob2,4,3);ctx.fillRect(bx2+31,seY-21+bob2,2,2);
+      ctx.fillStyle='rgba(255,216,102,.22)';ctx.fillRect(bx2+10,seY+2,10,2);ctx.fillRect(bx2+9,seY+6,12,2);
+    }
+    // Stjerneskot av og til
+    const ph2=fc%420;
+    if(ph2<26){
+      const sx3=40+((fc/420)|0)%3*100+ph2*5, sy3=20+ph2*2.2;
+      ctx.fillStyle='#fff';
+      ctx.globalAlpha=1-ph2/26;
+      ctx.fillRect(sx3,sy3,3,2);
+      for(let t2=1;t2<6;t2++){
+        ctx.globalAlpha=(1-ph2/26)*(1-t2/6);
+        ctx.fillRect(sx3-t2*5,sy3-t2*2.2,4,2);
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+}
+
 // ── Forgrunns-parallakse: silhuettar som rullar raskare enn spelet ──
 function drawForeground(){
   const fgc={1:'rgba(6,26,8,.85)',2:'rgba(18,20,24,.85)',3:'rgba(235,240,248,.88)',4:'rgba(222,232,244,.88)'};
@@ -2472,7 +2574,7 @@ function drawTrusegutt(e){
   ctx.translate(ex+20+shiv,ey+30);
   if(e.vx>0)ctx.scale(-1,1);
   ctx.translate(-20,-30);
-  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  // (blinking fjerna — åtvaring blir vist som raudt «!» over hovudet i staden)
   const sw=Math.abs(e.vx)>.2?Math.sin(fc*.18)*5:0;
   // Bare bein (bleik, kald hud)
   ctx.fillStyle='#dcd0c8';ctx.fillRect(8,40+sw,10,16);ctx.fillRect(22,40-sw,10,16);
@@ -2845,6 +2947,7 @@ function draw(){
     ctx.fillStyle='#fff6cc';ctx.beginPath();ctx.arc(sunX,46,16,0,7);ctx.fill();
     ctx.fillStyle='#fffce8';ctx.beginPath();ctx.arc(sunX-4,42,7,0,7);ctx.fill();
   }
+  drawAmbient();
   // Luftperspektiv: lett dis mot horisonten gir djupne
   const fogC={1:'188,232,250',2:'150,165,180',3:'240,170,32',4:'30,50,76'}[currentLevel]||'255,255,255';
   ctx.fillStyle='rgba('+fogC+',.08)';ctx.fillRect(0,GY-66,W,26);
@@ -2863,6 +2966,15 @@ function draw(){
     else if(e.t==='po')drawPolav(e);
     else if(e.t==='of')drawOrdforer(e);
     else if(e.t==='tg')drawTrusegutt(e);
+    // Boss-åtvaring: fast raudt «!» over hovudet (ikkje blinking)
+    if(e.hp&&e.alive&&e.wt>0){
+      const ex2=wx(e.x+e.w/2)|0;
+      if(ex2>-20&&ex2<W+20){
+        ctx.fillStyle='#ff3333';
+        ctx.fillRect(ex2-2,wy(e.y)-20,5,10);
+        ctx.fillRect(ex2-2,wy(e.y)-7,5,4);
+      }
+    }
   });
   drawProjs();
   drawP();
