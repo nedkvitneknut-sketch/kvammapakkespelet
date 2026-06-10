@@ -1560,6 +1560,10 @@ function showCharSelect(){
 function startFromCharSelect(){
   document.getElementById('cs').style.display='none';
   score=0;upd();currentLevel=1;initLevel();state='playing';
+  // Start musikken frå første level (klikket gir lov til lyd)
+  initAC();
+  if(AC&&AC.state==='suspended')AC.resume();
+  musicStop();musicStart();
   const lt=document.getElementById('lt');
   lt.textContent='LEVEL 1 - OVRE AKSNES';lt.style.display='block';
   setTimeout(()=>lt.style.display='none',2600);
