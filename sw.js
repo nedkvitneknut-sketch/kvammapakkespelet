@@ -1,5 +1,5 @@
 // Kvammapakkespelet – Service Worker v2
-const CACHE = 'kvamma-v3';
+const CACHE = 'kvamma-v4';
 const BASE  = '/kvammapakkespelet';
 const FILES = [
   BASE + '/kvammapakkespelet.html',

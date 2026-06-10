@@ -2158,6 +2158,519 @@ document.getElementById('mok').addEventListener('click',function(){
   document.addEventListener('keydown',function(e){if(sp.style.display!=='none')hideSplash();});
 })();
 
+// ══════════════════════════════════════════════════════════════
+// LEVEL 4: HENNINGSVÆR + STOR OPPGRADERING (Fable 5)
+// Redeklarerer kjernefunksjonane (siste deklarasjon vinn):
+//  - update(): all spellogikk samla, combo-system, mjukt kamera
+//  - loop(): rein loop utan dupliserte boss-sjekkar
+//  - draw(): alle 4 levels + vêr-overlay
+//  - seqTick(): musikk transponert + raskare tempo per level
+// ══════════════════════════════════════════════════════════════
+
+const BOSS_T={vk:'VIKØYJENTO',m:'MÅGNI',po:"P'OLAV",of:'ORDFØRAREN',tg:'TRUSEGUTT'};
+const REG_T={t:'KALKUN! +%s 🦃',tj:'TJOMMI! +%s 🐟',nb:'NATABJØDN! +%s 🐿️',lf:'LOFOTTORSK! +%s 🐟'};
+
+// ── Henningsvær bakgrunn: polarnatt, nordlys, rorbuer, hjell ──
+function drawBGHenningsvaer(){
+  // Arktisk nattehimmel
+  const skyN=['#04060f','#060a18','#081020','#0a1628','#0c1c30','#0e2238','#102840','#122e48'];
+  const bh=Math.ceil(H*.5/skyN.length)+1;
+  skyN.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,i*bh,W,bh+1);});
+
+  // Stjerner (blinkar)
+  for(let s=0;s<40;s++){
+    const sx=((s*89+7-camX*.02)%(W+20)+W+20)%(W+20)-10;
+    const sy=(s*47)%160+4;
+    const tw=Math.sin(fc*.05+s*1.7);
+    if(tw>-.3){ctx.fillStyle=tw>.5?'#ffffff':'#aaccee';const z=s%7===0?2:1;ctx.fillRect(sx,sy,z,z);}
+  }
+  // Måne
+  const mnx=((300-camX*.015)%(W+200)+W+200)%(W+200)-100;
+  ctx.fillStyle='#e8eef8';ctx.fillRect(mnx,28,18,18);
+  ctx.fillStyle='#f8fcff';ctx.fillRect(mnx+2,30,14,14);
+  ctx.fillStyle='#ccd8e8';ctx.fillRect(mnx+5,34,4,4);ctx.fillRect(mnx+11,40,3,3);
+
+  // NORDLYS — tre bølgjande band
+  for(let L=0;L<3;L++){
+    const colA=['#2aff7e','#37ffc8','#a06aff'][L];
+    const colB=['#1ee68a','#28d8b0','#7a4ae0'][L];
+    for(let ax=0;ax<W;ax+=5){
+      const ph=fc*.018+L*1.9;
+      const ay=30+L*16+Math.sin(ax*.018+ph)*16+Math.sin(ax*.041-ph*1.4)*8;
+      const ah=26+Math.sin(ax*.027+ph*1.2)*12;
+      ctx.globalAlpha=Math.max(.04,.10+.06*Math.sin(ax*.05+fc*.04+L));
+      ctx.fillStyle=colA;ctx.fillRect(ax,ay,5,ah);
+      ctx.globalAlpha=.16;
+      ctx.fillStyle=colB;ctx.fillRect(ax,ay+ah*.3,5,ah*.3);
+    }
+  }
+  ctx.globalAlpha=1;
+
+  // Lofotveggen — kvasse tindar
+  const peaks=[[0,70,170],[150,52,150],[290,84,160],[430,60,140],[560,76,165]];
+  ctx.fillStyle='#1a2438';
+  peaks.forEach(([ox,py,mw])=>{
+    const mx=((ox-camX*.04)%(W+340)+W+340)%(W+340)-170;
+    ctx.beginPath();
+    ctx.moveTo(mx,GY-58);ctx.lineTo(mx+mw*.38,py);ctx.lineTo(mx+mw*.52,py+26);
+    ctx.lineTo(mx+mw*.68,py+8);ctx.lineTo(mx+mw,GY-58);ctx.fill();
+  });
+  ctx.fillStyle='#dde8f4';
+  peaks.forEach(([ox,py,mw])=>{
+    const mx=((ox-camX*.04)%(W+340)+W+340)%(W+340)-170;
+    ctx.beginPath();
+    ctx.moveTo(mx+mw*.38-16,py+24);ctx.lineTo(mx+mw*.38,py);ctx.lineTo(mx+mw*.38+14,py+24);ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(mx+mw*.68-12,py+28);ctx.lineTo(mx+mw*.68,py+8);ctx.lineTo(mx+mw*.68+12,py+28);ctx.fill();
+  });
+
+  // Hav med nordlys-refleksar
+  const seY=GY-34;
+  ctx.fillStyle='#0a1830';ctx.fillRect(0,seY,W,34);
+  ctx.fillStyle='#102440';ctx.fillRect(0,seY,W,6);
+  ctx.fillStyle='#33ff8826';
+  for(let w=0;w<8;w++){const gx2=((w*70-camX*.2+fc*.4)%(W+40)+W+40)%(W+40)-20;ctx.fillRect(gx2,seY+8+(w%3)*7,26,2);}
+  ctx.fillStyle='#aaccee22';
+  for(let w=0;w<6;w++){const gx2=((w*95-camX*.22+fc*.5)%(W+40)+W+40)%(W+40)-20;ctx.fillRect(gx2,seY+5,34,2);}
+
+  // Rorbuer (raude fiskarhytter på stolpar)
+  const rbStart=((80-camX*.12)%(W+760)+W+760)%(W+760)-380;
+  for(let b=0;b<9;b++){
+    const bx=rbStart+b*86;if(bx>W+70||bx+64<-10)continue;
+    const bh2=40+(b*11)%14;
+    ctx.fillStyle='#241408';ctx.fillRect(bx+6,GY-12,4,14);ctx.fillRect(bx+48,GY-12,4,14);
+    ctx.fillStyle='#a81f14';ctx.fillRect(bx,GY-12-bh2,58,bh2);
+    ctx.fillStyle='#8a1810';for(let s=0;s<5;s++)ctx.fillRect(bx+s*12,GY-12-bh2,3,bh2);
+    ctx.fillStyle='#1a1a22';
+    ctx.beginPath();ctx.moveTo(bx-4,GY-12-bh2);ctx.lineTo(bx+29,GY-30-bh2);ctx.lineTo(bx+62,GY-12-bh2);ctx.fill();
+    ctx.fillStyle='#dde8f4';
+    ctx.beginPath();ctx.moveTo(bx,GY-14-bh2);ctx.lineTo(bx+29,GY-28-bh2);ctx.lineTo(bx+58,GY-14-bh2);ctx.fill();
+    ctx.fillStyle='#ffd866';ctx.fillRect(bx+8,GY-2-bh2,10,10);ctx.fillRect(bx+38,GY-2-bh2,10,10);
+    ctx.fillStyle='#fff';ctx.fillRect(bx+12,GY-2-bh2,2,10);ctx.fillRect(bx+42,GY-2-bh2,2,10);
+    ctx.fillStyle='#e8e8e8';ctx.fillRect(bx,GY-12-bh2,58,2);
+  }
+
+  // Hjell — fiskehjellar med tørrfisk
+  const hjStart=((200-camX*.16)%(W+600)+W+600)%(W+600)-300;
+  for(let h2=0;h2<4;h2++){
+    const hx=hjStart+h2*150;if(hx>W+60||hx+50<-10)continue;
+    ctx.fillStyle='#3a2a14';
+    ctx.fillRect(hx,GY-34,3,34);ctx.fillRect(hx+44,GY-34,3,34);
+    ctx.fillRect(hx-2,GY-34,51,3);ctx.fillRect(hx-2,GY-22,51,2);
+    ctx.fillStyle='#c8b890';
+    for(let f2=0;f2<6;f2++)ctx.fillRect(hx+3+f2*7,GY-31,3,8);
+    ctx.fillStyle='#b0a078';
+    for(let f2=0;f2<6;f2++)ctx.fillRect(hx+6+f2*7,GY-20,3,7);
+  }
+
+  // Snødekt kai
+  const gndN=['#cfd8e4','#bcc8d8','#a8b6c8','#94a4b8','#8094a8','#6a8098'];
+  const gh=Math.ceil((H-GY)/gndN.length)+1;
+  gndN.forEach((c,i)=>{ctx.fillStyle=c;ctx.fillRect(0,GY+i*gh,W,gh+1);});
+  ctx.fillStyle='#eef4fb';ctx.fillRect(0,GY,W,4);
+  ctx.fillStyle='#00000018';
+  for(let g=0;g<26;g++){const gx2=((g*46-camX*.18)%(W+40)+W+40)%(W+40)-20;ctx.fillRect(gx2,GY+8,2,H-GY-8);}
+}
+
+// ── Lofottorsk — skrei med skjeggtråd og flekker ──
+function drawLofottorsk(e){
+  if(!e.alive)return;
+  const ex=wx(e.x)|0,ey=wy(e.y)|0;
+  if(ex>W+60||ex+e.w<-60)return;
+  const bob=(Math.sin(fc*.15+e.x*.008)*2)|0;
+  ctx.save();
+  ctx.translate(ex+18,ey+20);
+  if(e.vx>0)ctx.scale(-1,1);
+  ctx.translate(-18,-20);
+  if(e.stun>0&&((e.stun/4|0)%2))ctx.globalAlpha=0.5;
+  // Hale
+  ctx.fillStyle='#7a6a48';ctx.fillRect(-5,16+bob,7,16);ctx.fillRect(-8,23+bob,12,6);
+  // Kropp (skrei: olivenbrun rygg, kvit buk)
+  ctx.fillStyle='#8a7850';ctx.fillRect(1,10,26,20);
+  ctx.fillStyle='#9a8858';ctx.fillRect(3,8,22,7);
+  ctx.fillStyle='#f0ead8';ctx.fillRect(3,23,24,7);
+  // Sidelinje
+  ctx.fillStyle='#d8cca8';ctx.fillRect(2,19,26,2);
+  // Flekker
+  ctx.fillStyle='#5a4a2a';
+  ctx.fillRect(5,11,3,3);ctx.fillRect(11,13,3,3);ctx.fillRect(17,10,3,3);
+  ctx.fillRect(22,14,3,3);ctx.fillRect(8,16,2,2);ctx.fillRect(15,16,2,2);
+  // Finnar (torsk har fleire ryggfinnar)
+  ctx.fillStyle='#6a5a38';
+  ctx.fillRect(6,4+bob,8,7);ctx.fillRect(16,5+bob,8,6);
+  ctx.fillRect(0,28,5,7);ctx.fillRect(24,28,5,7);
+  // Hovud
+  ctx.fillStyle='#8a7850';ctx.fillRect(22,6+bob,14,18);
+  // Underbitt
+  ctx.fillStyle='#1a1208';ctx.fillRect(32,16+bob,6,4);
+  ctx.fillStyle='#f0ead8';ctx.fillRect(33,18+bob,5,3);
+  // Skjeggtråd
+  ctx.fillStyle='#5a4a2a';ctx.fillRect(33,22+bob,2,6);
+  // Auge
+  ctx.fillStyle='#fff';ctx.fillRect(25,9+bob,6,5);
+  ctx.fillStyle='#000';ctx.fillRect(27,10+bob,3,3);
+  ctx.fillStyle='#fff';ctx.fillRect(27,10+bob,1,1);
+  ctx.fillStyle='#88ddff';ctx.font='bold 5px monospace';
+  ctx.fillText('LOFOTTORSK',-2,44+bob);
+  if(e.stun>0){ctx.fillStyle='#ffec00';ctx.fillRect(10,-6,4,4);}
+  ctx.restore();ctx.globalAlpha=1;
+}
+
+// ── Trusegutt — L4-boss, frys i berre trusa (3 HP!) ──
+function drawTrusegutt(e){
+  if(!e.alive)return;
+  const ex=wx(e.x)|0,ey=wy(e.y)|0;
+  if(ex>W+80||ex+e.w<-80)return;
+  const bob=Math.sin(fc*.1)*3|0,warn=e.wt>0;
+  const shiv=warn?0:Math.sin(fc*.9)*1.4; // skjelv av kulde
+  ctx.save();
+  ctx.translate(ex+20+shiv,ey+30);
+  if(e.vx>0)ctx.scale(-1,1);
+  ctx.translate(-20,-30);
+  if(warn&&(e.wt/5|0)%2)ctx.globalAlpha=0.4;
+  const sw=Math.abs(e.vx)>.2?Math.sin(fc*.18)*5:0;
+  // Bare bein (bleik, kald hud)
+  ctx.fillStyle='#dcd0c8';ctx.fillRect(8,40+sw,10,16);ctx.fillRect(22,40-sw,10,16);
+  ctx.fillStyle='#c8bcc0';ctx.fillRect(8,40+sw,10,3);ctx.fillRect(22,40-sw,10,3);
+  // Sandalar
+  ctx.fillStyle='#8899bb';ctx.fillRect(6,54+sw,13,4);ctx.fillRect(20,54-sw,13,4);
+  // TRUSA (kvit med raud linning)
+  ctx.fillStyle='#f4f4f0';ctx.fillRect(6,30,28,12);
+  ctx.fillStyle='#dddcd4';ctx.fillRect(6,38,10,4);ctx.fillRect(24,38,10,4);
+  ctx.fillStyle='#cc3333';ctx.fillRect(6,30,28,3);
+  ctx.fillStyle='#fff';ctx.fillRect(17,33,6,4);
+  // Bar overkropp
+  ctx.fillStyle='#e8d8cc';ctx.fillRect(7,12,26,19);
+  ctx.fillStyle='#dcc8bc';ctx.fillRect(7,12,26,3);
+  // Gåsehud
+  ctx.fillStyle='#cdb8ac';
+  ctx.fillRect(10,17,2,2);ctx.fillRect(16,20,2,2);ctx.fillRect(24,16,2,2);
+  ctx.fillRect(28,22,2,2);ctx.fillRect(13,25,2,2);ctx.fillRect(22,26,2,2);
+  ctx.fillStyle='#bb8877';ctx.fillRect(12,18,3,3);ctx.fillRect(26,18,3,3);
+  ctx.fillStyle='#c0a898';ctx.fillRect(19,26,3,3);
+  // Armar: klemmer seg sjølv av kulde, strekkjer ut i angrepsmodus
+  ctx.fillStyle='#e8d8cc';
+  if(warn){
+    ctx.fillRect(0,12,8,16);ctx.fillRect(32,12,8,16);
+    ctx.fillStyle='#dcc8bc';ctx.fillRect(0,25,8,5);ctx.fillRect(32,25,8,5);
+  }else{
+    ctx.fillRect(2,14,7,12);ctx.fillRect(31,14,7,12);ctx.fillRect(7,18,26,5);
+  }
+  // Hovud
+  ctx.fillStyle='#e8d8cc';ctx.fillRect(8,-8+bob,24,20);
+  ctx.fillStyle='#f2e4d8';ctx.fillRect(11,-7+bob,8,4);
+  // Raude frosne øyre
+  ctx.fillStyle='#dd7766';ctx.fillRect(5,-2+bob,4,7);ctx.fillRect(31,-2+bob,4,7);
+  // Hår med frosttippar
+  ctx.fillStyle='#6a4a22';ctx.fillRect(7,-11+bob,26,6);ctx.fillRect(6,-8+bob,4,6);ctx.fillRect(30,-8+bob,4,6);
+  ctx.fillStyle='#e8f0ff';ctx.fillRect(9,-11+bob,3,2);ctx.fillRect(17,-12+bob,4,2);ctx.fillRect(26,-11+bob,3,2);
+  // Raude kinn
+  ctx.fillStyle='#ee8877';ctx.fillRect(9,3+bob,5,4);ctx.fillRect(26,3+bob,5,4);
+  // Auge
+  ctx.fillStyle='#fff';ctx.fillRect(11,-3+bob,7,5);ctx.fillRect(22,-3+bob,7,5);
+  ctx.fillStyle=warn?'#ff2200':'#3388cc';ctx.fillRect(13,-2+bob,4,3);ctx.fillRect(24,-2+bob,4,3);
+  ctx.fillStyle='#000';ctx.fillRect(14,-1+bob,2,2);ctx.fillRect(25,-1+bob,2,2);
+  // Bryn
+  ctx.fillStyle='#6a4a22';ctx.fillRect(10,-5+bob,8,2);ctx.fillRect(22,-5+bob,8,2);
+  if(warn){ctx.fillRect(10,-5+bob,3,3);ctx.fillRect(27,-5+bob,3,3);}
+  // Blå skjelvande munn
+  ctx.fillStyle='#7788cc';
+  if(warn){ctx.fillRect(15,8+bob,10,4);ctx.fillStyle='#334466';ctx.fillRect(17,9+bob,6,2);}
+  else{ctx.fillRect(15,8+bob,10,2+(fc%6<3?1:0));}
+  // Frostpust
+  if(!warn&&fc%90<40){
+    const bf=(fc%90)/40;
+    ctx.fillStyle='#ffffff33';
+    ctx.fillRect(33+bf*10,4+bob-bf*6,Math.max(2,6-bf*3),Math.max(2,5-bf*2));
+  }
+  // HP-bar (3 HP — tøffaste bossen)
+  if(e.hp<3){ctx.fillStyle='#550000';ctx.fillRect(2,-16,36,5);ctx.fillStyle='#66ddff';ctx.fillRect(2,-16,12*e.hp,5);}
+  ctx.fillStyle='#88ddff';ctx.font='bold 5px monospace';
+  ctx.fillText('TRUSEGUTT',2,54+bob);
+  if(e.stun>0){ctx.fillStyle='#ffec00';ctx.fillRect(15,-22,6,5);}
+  ctx.restore();ctx.globalAlpha=1;
+}
+
+// ── Level 4 data ──
+function mkPlats4(){return[{x:0,y:GY,w:LW,h:60,t:'g'},
+  {x:150,y:295,w:75,h:14,t:'h'},{x:300,y:252,w:65,h:14,t:'h'},{x:450,y:222,w:85,h:14,t:'h'},
+  {x:620,y:262,w:60,h:14,t:'h'},{x:770,y:210,w:80,h:14,t:'h'},{x:940,y:238,w:70,h:14,t:'h'},
+  {x:1100,y:186,w:95,h:14,t:'h'},{x:1280,y:232,w:65,h:14,t:'h'},{x:1430,y:182,w:85,h:14,t:'h'},
+  {x:1590,y:252,w:70,h:14,t:'h'},{x:1750,y:198,w:80,h:14,t:'h'},{x:1910,y:166,w:65,h:14,t:'h'},
+  {x:2050,y:222,w:110,h:14,t:'h'},{x:2250,y:172,w:80,h:14,t:'h'}];}
+function mkItems4(){return[
+  {x:170,y:263,t:'shield',got:false},{x:320,y:220,t:'special',got:false},
+  {x:470,y:190,t:'special',got:false},{x:640,y:230,t:'shield',got:false},
+  {x:790,y:178,t:'coin',got:false},{x:960,y:206,t:'special',got:false},
+  {x:1120,y:154,t:'coin',got:false},{x:1300,y:200,t:'shield',got:false},
+  {x:1450,y:150,t:'special',got:false},{x:1610,y:220,t:'coin',got:false},
+  {x:1770,y:166,t:'shield',got:false},{x:1930,y:134,t:'special',got:false},
+  {x:2070,y:190,t:'coin',got:false},{x:2270,y:140,t:'shield',got:false},
+  ...Array.from({length:26},(_,i)=>({x:155+i*82,y:190+Math.sin(i*.85)*38,t:'coin',got:false}))];}
+function mkEnemies4(){
+  const lfs=[320,520,720,930,1130,1340,1530,1730,1930,2130].map((x,i)=>({
+    x,y:GY-40,vx:i%2?-1.4:-1.7,alive:true,w:38,h:40,t:'lf',stun:0}));
+  const tgs=[660,1360,2060].map(x=>({
+    x,y:GY-60,vx:Math.random()>.5?-1.8:-2.1,alive:true,w:40,h:60,t:'tg',hp:3,wt:0,ann:false,stun:0}));
+  return [...lfs,...tgs];
+}
+
+// ── initLevel: alle 4 levels ──
+function initLevel(){
+  if(currentLevel===1){plats=mkPlats();items=mkItems();enemies=mkEnemies();}
+  else if(currentLevel===2){plats=mkPlats2();items=mkItems2();enemies=mkEnemies2();}
+  else if(currentLevel===3){plats=mkPlats3();items=mkItems3();enemies=mkEnemies3();}
+  else{plats=mkPlats4();items=mkItems4();enemies=mkEnemies4();}
+  camX=0;parts=[];resetP();
+}
+
+// ── Plattformer: + Henningsvær-kai ('h') ──
+function drawPlatforms(){
+  plats.forEach(p=>{
+    const px=wx(p.x)|0;if(px>W+20||px+p.w<-20||p.t==='g')return;
+    if(p.t==='h'){
+      // Trekai med snølag
+      ctx.fillStyle='#5a4226';ctx.fillRect(px,wy(p.y),p.w,p.h);
+      ctx.fillStyle='#6e5232';ctx.fillRect(px,wy(p.y)+4,p.w,3);
+      ctx.fillStyle='#eef4fb';ctx.fillRect(px,wy(p.y),p.w,4);
+      ctx.fillStyle='#ffffff';ctx.fillRect(px+2,wy(p.y),p.w-4,2);
+    }else if(p.t==='v'){
+      ctx.fillStyle='#8899aa';ctx.fillRect(px,wy(p.y),p.w,p.h);
+      ctx.fillStyle='#aabbcc';ctx.fillRect(px,wy(p.y),p.w,4);
+      ctx.fillStyle='#fff';ctx.fillRect(px+2,wy(p.y),p.w-4,2);
+    }else if(p.t==='b'){
+      ctx.fillStyle='#7a7060';ctx.fillRect(px,wy(p.y),p.w,p.h);
+      ctx.fillStyle='#9a9080';ctx.fillRect(px,wy(p.y),p.w,4);
+      ctx.fillStyle='#aaaaaa';ctx.fillRect(px+2,wy(p.y),p.w-4,2);
+    }else{
+      ctx.fillStyle='#4a5a3a';ctx.fillRect(px,wy(p.y),p.w,p.h);
+      ctx.fillStyle='#5a6a4a';ctx.fillRect(px,wy(p.y),p.w,5);
+      ctx.fillStyle='#3a8a3a';ctx.fillRect(px+2,wy(p.y),p.w-4,3);
+    }
+  });
+}
+
+// ── Vêr-overlay: snøfall i Voss og Henningsvær ──
+function drawWeather(){
+  if(currentLevel!==3&&currentLevel!==4)return;
+  ctx.fillStyle='#ffffff';
+  for(let s=0;s<36;s++){
+    const drift=Math.sin(fc*.02+s)*14;
+    const sx2=((s*101+drift+fc*(.2+(s%3)*.15))%(W+24)+W+24)%(W+24)-12;
+    const sy2=(s*53+fc*(.8+(s%4)*.35))%(H+12)-6;
+    ctx.globalAlpha=Math.max(.15,.5+.4*Math.sin(s*2.1));
+    ctx.fillRect(sx2,sy2,s%3===0?2:1,s%3===0?2:1);
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── update: all spellogikk, combo-system, mjukt kamera ──
+function update(){
+  if(state!=='playing')return;
+  fc++;
+  updShake();updP();
+
+  const left=keys.l,right=keys.r,jump=keys.j;
+  const spd=3.4;
+  if(left){P.vx=Math.max(P.vx-.9,-spd);P.face=-1;}
+  if(right){P.vx=Math.min(P.vx+.9,spd);P.face=1;}
+  if(!left&&!right)P.vx*=.72;
+
+  if(jump&&!P.jh&&P.jl>0){
+    if(P.jl===2)sfxJump();else{sfxDblJump();spawnP(P.x+12,P.y+24,7,['#ffec00','#fff','#ff88cc']);}
+    P.vy=-9.5;P.jh=true;P.jl--;
+  }
+  if(!jump)P.jh=false;
+
+  P.vy=Math.min(P.vy+G,13);
+  P.x+=P.vx;P.y+=P.vy;
+  P.x=Math.max(0,Math.min(LW-P.w,P.x));
+
+  P.ground=false;
+  for(const p of plats){
+    if(!hit(P.x,P.y,P.w,P.h,p.x,p.y,p.w,p.h))continue;
+    const pb=P.y+P.h-P.vy,pt=P.y-P.vy;
+    if(P.vy>=0&&pb<=p.y+8){P.y=p.y-P.h;P.vy=0;P.ground=true;P.jl=2;}
+    else if(P.vy<0&&pt>=p.y+p.h-4){P.y=p.y+p.h;P.vy=1;}
+    else{P.x=P.x+P.w/2<p.x+p.w/2?p.x-P.w:p.x+p.w;P.vx=0;}
+  }
+  if(P.ground)P.combo=0;
+  if(P.y>H+100){die();return;}
+
+  // Mjukt kamera med blikk framover
+  const camT=Math.max(0,Math.min(LW-W,P.x-W/2+P.w/2+P.face*36));
+  camX+=(camT-camX)*.14;
+  if(Math.abs(camT-camX)<.4)camX=camT;
+
+  // Items
+  for(const it of items){
+    if(it.got)continue;
+    if(!hit(P.x,P.y,P.w,P.h,it.x,it.y,22,22))continue;
+    it.got=true;
+    if(it.t==='coin'){score+=10;ft('+10');sfxCoin();}
+    else if(it.t==='shield'){
+      P.pow=true;score+=50;sfxBeanie();
+      var shieldTxt={tore:'BEANIE PÅ! 🧢',sindre:'CAPS PÅ! 🧢',simon:'HJELM PÅ! 🚵',sveinolav:'SNOWBOARDHJELM PÅ! 🏂',knut:'CAPS PÅ! 🧢'};
+      ft(shieldTxt[selectedChar]||'SKJOLD PÅ!');
+      spawnP(P.x+12,P.y,18,['#44aaff','#88ccff','#fff','#ffec00']);
+    }
+    else if(it.t==='special'){
+      score+=30;sfxDrum();
+      var specTxt={tore:'ROCK ME DRY! 🥁',sindre:'SETT SEGL! ⛵',simon:'SYKKEL BOOST! 🚴',sveinolav:'SHRED IT! 🏂',knut:'BLUESY! 🎷'};
+      ft(specTxt[selectedChar]||'ITEM!');
+    }
+    else if(it.t==='drum'){score+=30;ft('ROCK ME DRY! 🥁');sfxDrum();}
+    upd();
+  }
+
+  // Fiende-kollisjonar (med combo-system!)
+  if(P.inv>0){P.inv--;}
+  else{
+    for(const e of enemies){
+      if(!e.alive||e.stun>0)continue;
+      if(!hit(P.x,P.y,P.w,P.h,e.x,e.y,e.w,e.h))continue;
+      const stomping=P.vy>0.5&&P.y+P.h<e.y+e.h*.48+10;
+      if(stomping){
+        P.combo=(P.combo||0)+1;
+        if(REG_T[e.t]){
+          const bonus=100+(P.combo-1)*50;
+          e.alive=false;P.vy=-7;score+=bonus;upd();
+          spawnP(e.x+16,e.y,10,['#dd7700','#ffbb00','#fff']);
+          ft(P.combo>1?('COMBO x'+P.combo+'! +'+bonus+' 🔥'):REG_T[e.t].replace('%s',bonus));
+          sfxKill();
+        }else{
+          const bname=BOSS_T[e.t]||'BOSS';
+          e.hp--;P.vy=-8;
+          spawnP(e.x+18,e.y,14,['#cc2200','#ff4444','#fff','#ffec00']);
+          shake(6,12);sfxHurt();
+          if(e.hp<=0){
+            const bonus=500+(P.combo-1)*100;
+            e.alive=false;score+=bonus;upd();
+            spawnP(e.x+18,e.y+28,28,['#ff4444','#ffec00','#fff','#ff88cc']);
+            shake(10,20);ft(bname+' STOPPA! +'+bonus+' 💥');
+          }else{e.stun=40;e.wt=60;ft(bname+' STUNN! ⭐');}
+        }
+      }else{
+        if(BOSS_T[e.t])shake(8,16);
+        hitPlayer();return;
+      }
+    }
+  }
+
+  // Fiende-AI (alle bossar samla på éin stad)
+  for(const e of enemies){
+    if(!e.alive)continue;
+    if(e.stun>0){e.stun--;continue;}
+    if(BOSS_T[e.t]){
+      e.wt=Math.max(0,e.wt-1);
+      if(!e.ann&&Math.abs(e.x-P.x)<580){e.ann=true;sfxMagni();ft('⚠️ '+BOSS_T[e.t]+' KJEM! 😱');}
+      const dx=P.x-e.x;
+      if(Math.abs(dx)<340){e.vx+=(dx>0?.06:-.06);if(Math.abs(dx)<200&&!e.wt)e.wt=30;}
+      const cap=e.t==='tg'?3.6:3.2; // Trusegutt spring fortare — han må halde varmen
+      e.vx=Math.max(-cap,Math.min(cap,e.vx));
+    }
+    e.x+=e.vx;
+    if(e.x<10)e.vx=Math.abs(e.vx);
+    if(e.x>LW-e.w-10)e.vx=-Math.abs(e.vx);
+  }
+
+  // Level-slutt
+  if(P.x>LW-100){
+    if(currentLevel===1){
+      state='levelup';currentLevel=2;musicStop();sfxWin();
+      msgShow('LEVEL 1 KLART! 🎸','Bergen kallar...','Tjommiar ventar! Mågni er farleg!','TIL BERGEN →',false);
+    }else if(currentLevel===2){
+      state='levelup';currentLevel=3;musicStop();sfxWin();
+      msgShow('LEVEL 2 KLART! 🎸','Voss kallar...','Natabjødnar ventar! Ordføraren kjem!','TIL VOSS →',false);
+    }else if(currentLevel===3){
+      state='levelup';currentLevel=4;musicStop();sfxWin();
+      msgShow('LEVEL 3 KLART! 🎸','Henningsvær kallar...','Lofottorskar ventar! Trusegutt spring laus – i berre trusa! 🩲','TIL HENNINGSVÆR →',false);
+    }else{
+      state='win';musicStop();sfxWin();showWin();
+      document.getElementById('mbody').textContent='Henningsvær er redda! Heile Noreg rocka tørt! 🎸';
+    }
+  }
+}
+
+// ── draw: alle 4 levels + vêr ──
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(currentLevel===2)drawBGBergen();
+  else if(currentLevel===3)drawBGVoss();
+  else if(currentLevel===4)drawBGHenningsvaer();
+  else drawBG();
+  drawGoal();drawPlatforms();
+  items.forEach(drawItem);
+  enemies.forEach(e=>{
+    if(e.t==='t')drawTurkey(e);
+    else if(e.t==='tj')drawTjommi(e);
+    else if(e.t==='nb')drawNatabjoedn(e);
+    else if(e.t==='lf')drawLofottorsk(e);
+    else if(e.t==='vk')drawVikoeyjento(e);
+    else if(e.t==='m')drawMagni(e);
+    else if(e.t==='po')drawPolav(e);
+    else if(e.t==='of')drawOrdforer(e);
+    else if(e.t==='tg')drawTrusegutt(e);
+  });
+  drawP();
+  if(P.inv===0||fc%6<4)drawCurrentPlayer(P.x,P.y);
+  drawWeather();
+}
+
+// ── Rein loop — all logikk ligg no i update() ──
+function loop(){update();draw();requestAnimationFrame(loop);}
+
+// ── Musikk: transponert + raskare tempo per level ──
+const LVL_TRANS={1:0,2:-2,3:3,4:5},LVL_TEMPO={1:1,2:.96,3:.92,4:.86};
+function seqTick(){
+  if(!seqRunning||!AC||muted)return;
+  const i=seqStep%MEL.length;
+  const t=AC.currentTime+0.02;
+  const off=LVL_TRANS[currentLevel]||0;
+  const sm=STEP_MS*(LVL_TEMPO[currentLevel]||1);
+  const sd=sm/1000;
+  if(MEL[i]){
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='square';o.frequency.value=mHz(MEL[i]+off);
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.14,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.75);
+    o.start(t);o.stop(t+sd*0.78);
+  }
+  if(BAS[i%BAS.length]&&i%2===0){
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='triangle';o.frequency.value=mHz(BAS[i%BAS.length]+off-12);
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.16,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+sd*0.85);
+    o.start(t);o.stop(t+sd*0.88);
+  }
+  if(i%8===0||i%8===4){
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sine';o.frequency.setValueAtTime(130,t);
+    o.frequency.exponentialRampToValueAtTime(38,t+0.1);
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.11);
+    o.start(t);o.stop(t+0.12);
+  }
+  if(i%8===2||i%8===6){
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sawtooth';o.frequency.value=160;
+    o.connect(g);g.connect(MG);
+    g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.055);
+    o.start(t);o.stop(t+0.06);
+  }
+  seqStep++;
+  seqTimer=setTimeout(seqTick,sm-15);
+}
+
+// ── Riktig level-tittel ved start av level 4 ──
+document.getElementById('mok').addEventListener('click',function(){
+  if(currentLevel===4&&state==='playing'){
+    var lt2=document.getElementById('lt');
+    if(lt2.style.display==='block')lt2.textContent='LEVEL 4 - HENNINGSVÆR';
+  }
+});
 
 </script>
 </body>
